@@ -1,1 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
+/* Custom styles for our landscape demo */
+body {
+  @apply bg-zinc-950 text-white;
+}
+
+.prose h2 {
+  @apply text-2xl font-semibold mt-8 mb-3;
+}
+
+.prose ul {
+  @apply list-disc pl-6 space-y-1;
+}
+
+/* Make range slider look nicer */
+input[type="range"] {
+  height: 8px;
+  background: #27272a;
+  border-radius: 9999px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #10b981; /* emerald-500 */
+  border-radius: 9999px;
+  cursor: pointer;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.3);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #10b981;
+  border-radius: 9999px;
+  cursor: pointer;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.3);
+}
