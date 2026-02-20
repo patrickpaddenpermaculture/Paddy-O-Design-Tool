@@ -54,7 +54,7 @@ Be encouraging and practical.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'grok-4-vision', // Use vision model - update if name changed in 2026
+        model: 'grok-vision', // Use vision model - update if name changed in 2026
         messages: [
           { role: 'system', content: systemPrompt },
           {
