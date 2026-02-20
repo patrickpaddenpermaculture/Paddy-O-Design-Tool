@@ -2,41 +2,50 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => null);
-    if (!body || !body.imageUrl) {
-      return NextResponse.json({ error: 'Missing image URL in request' }, { status: 400 });
+    let body;
+    try {
+      body = await req.json();
+    } catch (e) {
+      console.error('[breakdown] Invalid JSON body:', e);
+      return NextResponse.json({ error: 'Invalid request body (not JSON)' }, { status: 400 });
     }
 
     const { imageUrl, tier } = body;
+    if (!imageUrl) {
+      console.error('[breakdown] Missing imageUrl');
+      return NextResponse.json({ error: 'Missing image URL' }, { status: 400 });
+    }
 
     const apiKey = process.env.XAI_API_KEY;
     if (!apiKey) {
       console.error('[breakdown] Missing XAI_API_KEY env var');
-      return NextResponse.json({ error: 'Server misconfigured - no API key' }, { status: 500 });
+      return NextResponse.json({ error: 'Server error: API key not configured' }, { status: 500 });
     }
 
-    const systemPrompt = `You are a licensed landscape architect and contractor in Fort Collins, Colorado (2026 local pricing).
-You are looking at a generated xeriscape design image for a homeowner trying to qualify for the City's Xeriscape Incentive Program.
+    const systemPrompt = `You are a licensed landscape architect and contractor in Fort Collins, Colorado (2026 pricing).
+Analyze this xeriscape design image for a homeowner qualifying for the City's Xeriscape Incentive Program.
 
-Analyze the image carefully and provide a professional, realistic project breakdown in clean, readable Markdown format.
+Provide a realistic, detailed breakdown in clean Markdown:
 
-Always include:
 ## Project Summary
-- Chosen tier: ${tier || 'Unknown'}
-- Total estimated installed cost: $X,XXX – $X,XXX
+- Tier: ${tier || 'Unknown'}
+- Estimated total installed cost: $X,XXX – $X,XXX
 - Expected City rebate (XIP): $XXX – $1,000
-- Notes on rebate eligibility
+- Rebate eligibility notes
 
-## Phased Installation Plan (typically 4–8 weeks total)
-1. Phase name – duration – estimated cost – brief description
+## Phased Installation Strategy
+Focus on removing existing grass with a sod cutter, then mulching with shredded cedar wood chip mulch (not rock) for weed suppression and moisture retention. 4-8 weeks total.
 
-## Plant List (heavy on Colorado natives from Fort Collins Nature in the City Design Guide)
-• Common name (scientific name) – approximate quantity – role/purpose – approx. cost per plant
+1. Phase name – duration – estimated cost – description
 
-## Top-Down Landscape Plan Description
-Describe the layout as a clear bird's-eye view plan (e.g., "Central dry creek bed with native grasses on either side... seating area in the back right corner...").
+## Plant List Recommendation
+Heavy on Colorado natives from the official Fort Collins Nature in the City Design Guide. List 8-12 plants with:
+- Common name (scientific name)
+- Quantity (approx.)
+- Purpose/role
+- Approx. cost per plant
 
-Keep estimates realistic for Fort Collins market rates. Use mostly plants from the official Fort Collins native plant list where possible. Be encouraging and practical.`;
+Be encouraging and practical.`;
 
     const res = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
@@ -45,37 +54,37 @@ Keep estimates realistic for Fort Collins market rates. Use mostly plants from t
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'grok-4-vision-preview',   // or grok-vision-latest / grok-2-vision — use whatever vision model is currently active in 2026
+        model: 'grok-4-vision', // Use vision model - update if name changed in 2026
         messages: [
-          {
-            role: 'system',
-            content: systemPrompt,
-          },
+          { role: 'system', content: systemPrompt },
           {
             role: 'user',
             content: [
-              { type: 'text', text: 'Here is the landscape design image to analyze:' },
+              { type: 'text', text: 'Analyze this landscape design image:' },
               { type: 'image_url', image_url: { url: imageUrl } },
             ],
           },
         ],
-        temperature: 0.65,
-        max_tokens: 1800,
+        temperature: 0.7,
+        max_tokens: 2000,
       }),
     });
 
     if (!res.ok) {
-      const errText = await res.text();
-      console.error('[breakdown] xAI error:', res.status, errText);
-      return NextResponse.json({ error: `xAI API error (${res.status}): ${errText || '(no details)'}` }, { status: res.status });
+      const errorText = await res.text();
+      console.error('[breakdown] xAI API error:', res.status, errorText);
+      return NextResponse.json(
+        { error: `xAI failed (${res.status}): ${errorText || 'No details'}` },
+        { status: res.status }
+      );
     }
 
     const data = await res.json();
-    const content = data.choices?.[0]?.message?.content || 'No response content received.';
+    const content = data.choices?.[0]?.message?.content || 'No content returned from xAI.';
 
     return NextResponse.json({ breakdown: content });
   } catch (err: any) {
-    console.error('[breakdown] Proxy crash:', err.message, err.stack);
-    return NextResponse.json({ error: 'Internal server error: ' + (err.message || 'unknown') }, { status: 500 });
+    console.error('[breakdown] Internal error:', err.message, err.stack);
+    return NextResponse.json({ error: 'Internal error: ' + (err.message || 'unknown') }, { status: 500 });
   }
 }
