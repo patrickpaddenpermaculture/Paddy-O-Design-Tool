@@ -101,7 +101,10 @@ export default function LandscapeTool() {
   };
 
   const generateBreakdown = async () => {
-    if (!design) return;
+    if (!design) {
+      alert('No design generated yet.');
+      return;
+    }
 
     setBreakdownLoading(true);
     setBreakdown('');
@@ -148,7 +151,7 @@ export default function LandscapeTool() {
           See what your yard could look like and qualify for up to $1,000 from the City
         </p>
 
-        {/* Upload */}
+        {/* Upload Section */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-12">
           <h2 className="text-2xl font-semibold mb-4">Upload your yard photo (optional)</h2>
           <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-12 text-center">
@@ -169,7 +172,7 @@ export default function LandscapeTool() {
           </div>
         </div>
 
-        {/* Tier Selection */}
+        {/* Tier Selection - Step 2 */}
         <div className="mb-12">
           <h2 className="text-2xl font-semibold mb-6 text-center">Choose your project level</h2>
           <div className="grid md:grid-cols-3 gap-6">
@@ -203,7 +206,7 @@ export default function LandscapeTool() {
           </button>
         </div>
 
-        {/* Result */}
+        {/* Result Section */}
         {design && (
           <div className="mt-12">
             <h2 className="text-3xl font-semibold text-center mb-8">{selectedTier.name} Design</h2>
