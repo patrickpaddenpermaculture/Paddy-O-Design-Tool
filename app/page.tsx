@@ -1,20 +1,62 @@
+
 'use client';
 
 import React, { useState } from 'react';
-import { Upload, X, Check } from 'lucide-react';
+import { Upload, X, Check, Download, ArrowRight } from 'lucide-react';
 
-export default function LandscapeMVP() {
-  const [referenceFile, setReferenceFile] = useState<File | null>(null);
+interface Package {
+  id: string;
+  name: string;
+  rebate: string;
+  costRange: string;
+  desc: string;
+  promptKeywords: string;
+}
+
+const rebatePackages: Package[] = [
+  {
+    id: 'starter',
+    name: 'Starter Rebate',
+    rebate: 'Up to $750',
+    costRange: '$3,000 – $6,000',
+    desc: 'Great first step – basic xeriscape, rock mulch, some natives',
+    promptKeywords: 'basic xeriscape, rock mulch, drought-tolerant plants, minimal changes, qualifies for standard rebate',
+  },
+  {
+    id: 'full',
+    name: 'Full Rebate Max',
+    rebate: 'Up to $750',
+    costRange: '$5,000 – $9,000',
+    desc: 'Good coverage with drip irrigation and pathways',
+    promptKeywords: 'full xeriscape with drip irrigation, permeable pathways, attractive layered planting, strong rebate qualifier',
+  },
+  {
+    id: 'native',
+    name: 'Native Bonus Max ⭐',
+    rebate: 'Up to $1,000',
+    costRange: '$6,000 – $12,000',
+    desc: '80%+ Colorado native plants – maximum rebate',
+    promptKeywords: 'maximum native Colorado plants, high pollinator friendly, 80% native coverage, qualifies for native bonus rebate',
+  },
+  {
+    id: 'budget',
+    name: 'Budget Smart',
+    rebate: 'Up to $600',
+    costRange: 'Under $5,000',
+    desc: 'Best value – low-cost materials, still rebate eligible',
+    promptKeywords: 'budget-friendly xeriscape, low-cost materials, gravel and native grasses, still qualifies for rebate',
+  },
+];
+
+export default function LandscapeTool() {
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
-  const [budget, setBudget] = useState(8000);
-  const [selectedStyle, setSelectedStyle] = useState('Xeriscape');
-  const [selectedElements, setSelectedElements] = useState<string[]>([
-    'Native / drought-tolerant plants',
-    'Drip irrigation system',
-    'Mulch or decorative rock ground cover',
-  ]);
+  const [referenceFile, setReferenceFile] = useState<File | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<Package>(rebatePackages[2]); // default Native Bonus
   const [loading, setLoading] = useState(false);
   const [designs, setDesigns] = useState<{ url: string; promptUsed: string }[]>([]);
+  const [selectedDesign, setSelectedDesign] = useState<{ url: string; promptUsed: string } | null>(null);
+  const [breakdown, setBreakdown] = useState('');
+  const [breakdownLoading, setBreakdownLoading] = useState(false);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -30,65 +72,30 @@ export default function LandscapeMVP() {
     setReferencePreview(null);
   };
 
-  const toggleElement = (item: string) => {
-    setSelectedElements((prev) =>
-      prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
-    );
-  };
-
   const generateImages = async () => {
     setLoading(true);
     setDesigns([]);
 
-    const styleDesc = {
-      Xeriscape: 'drought-tolerant plants, decorative rock mulch, gravel paths, minimal turf',
-      'Permaculture Garden': 'herbs, vegetables, fruit trees, layered planting, companion planting',
-      'Water-Wise Native Plants': 'Colorado native grasses and flowers, dry creek bed or rain garden features',
-    }[selectedStyle] || selectedStyle;
-
-    const elementsStr = selectedElements.join(', ');
-
-    let basePrompt = `Photorealistic landscape design for a Fort Collins, Colorado yard. 
-    ONLY modify the yard, grass, plants, soil, and landscape features. 
-    DO NOT change or alter the house, roof, windows, doors, garage, driveway, sidewalks, fences, existing structures, or architecture in any way. 
-    Keep all non-landscape elements exactly the same as in the reference photo. 
-    Style: ${styleDesc}. 
-    Include these elements: ${elementsStr}. 
-    Budget-conscious design around $${budget.toLocaleString()}. 
-    Natural daylight, high detail, professional photography style.`;
-
-    let finalPrompt = basePrompt;
-
-    const isEdit = !!referenceFile;
-    const endpoint = '/api/generate'; // your proxy route
-
-    let base64 = '';
-    if (isEdit && referenceFile) {
-      base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        reader.readAsDataURL(referenceFile);
-      });
-    }
+    const finalPrompt = `Photorealistic landscape design for a real Fort Collins, Colorado front or back yard. 
+    ONLY change the yard/grass/plants/soil/landscape features. 
+    DO NOT change the house, roof, windows, garage, driveway, sidewalks, or any architecture. 
+    Design style: ${selectedPackage.promptKeywords}. 
+    Professional, natural daylight, high detail.`;
 
     try {
-      const res = await fetch(endpoint, {
+      const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: finalPrompt,
-          isEdit,
-          imageBase64: base64 || null,
-          aspect: '16:9',
+          isEdit: !!referenceFile,
+          imageBase64: referenceFile ? await fileToBase64(referenceFile) : null,
           n: 3,
+          aspect: '16:9',
         }),
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        alert('Error: ' + (err.error || 'Failed to generate designs'));
-        return;
-      }
+      if (!res.ok) throw new Error('Failed to generate');
 
       const data = await res.json();
       const newDesigns = data.data.map((d: any) => ({
@@ -97,198 +104,131 @@ export default function LandscapeMVP() {
       }));
 
       setDesigns(newDesigns);
-    } catch (err: any) {
-      alert('Network error: ' + err.message);
+    } catch (err) {
+      alert('Generation failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const viewBreakdown = async (design: { url: string; promptUsed: string }) => {
+    setSelectedDesign(design);
+    setBreakdown('');
+    setBreakdownLoading(true);
+
+    try {
+      const res = await fetch('/api/breakdown', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageUrl: design.url,
+          packageName: selectedPackage.name,
+        }),
+      });
+
+      const data = await res.json();
+      setBreakdown(data.breakdown || 'Could not generate breakdown at this time.');
+    } catch (err) {
+      setBreakdown('Sorry, the breakdown service is temporarily unavailable.');
+    } finally {
+      setBreakdownLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white py-12 px-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Title */}
-        <h1 className="text-4xl md:text-5xl font-serif font-bold text-center mb-3 text-emerald-600">
-          Fort Collins Xeriscape Design Tool
+      <div className="max-w-5xl mx-auto">
+        <h1 className="text-5xl font-serif font-bold text-center text-emerald-600 mb-3">
+          Fort Collins Xeriscape Rebate Designer
         </h1>
-        <p className="text-center text-lg text-zinc-400 mb-12">
-          Create beautiful, water-wise, pollinator-friendly landscapes for your yard
+        <p className="text-center text-xl text-zinc-400 mb-12">
+          See what your yard could look like and qualify for up to $1,000 from the City
         </p>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* LEFT COLUMN */}
-          <div className="space-y-8">
-            {/* Upload card */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-xl">
-              <h2 className="text-2xl font-semibold mb-4">Upload photo</h2>
-              <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-8 text-center">
-                {referencePreview ? (
-                  <div className="relative inline-block">
-                    <img
-                      src={referencePreview}
-                      alt="Yard preview"
-                      className="max-h-64 mx-auto rounded-xl object-cover"
-                    />
-                    <button
-                      onClick={clearReference}
-                      className="absolute -top-3 -right-3 bg-red-600 p-2 rounded-full text-white shadow"
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="cursor-pointer flex flex-col items-center">
-                    <Upload className="w-16 h-16 text-zinc-500 mb-4" />
-                    <span className="text-lg text-zinc-300">Upload a photo of your yard</span>
-                    <span className="text-sm text-zinc-500 mt-1">optional but recommended</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFile}
-                      className="hidden"
-                    />
-                  </label>
-                )}
+        {/* Upload */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-12">
+          <h2 className="text-2xl font-semibold mb-4">Step 1: Upload your yard photo</h2>
+          <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-12 text-center">
+            {referencePreview ? (
+              <div className="relative max-w-md mx-auto">
+                <img src={referencePreview} className="rounded-2xl" />
+                <button onClick={clearReference} className="absolute top-4 right-4 bg-red-600 p-2 rounded-full">
+                  <X size={24} />
+                </button>
               </div>
-            </div>
-
-            {/* Budget card */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-xl">
-              <h2 className="text-2xl font-semibold mb-4">Budget</h2>
-              <div className="flex justify-between text-sm text-zinc-400 mb-3">
-                <span>$1,000</span>
-                <span className="text-emerald-400 font-bold">${budget.toLocaleString()}</span>
-              </div>
-              <input
-                type="range"
-                min={1000}
-                max={15000}
-                step={500}
-                value={budget}
-                onChange={(e) => setBudget(Number(e.target.value))}
-                className="w-full h-3 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-emerald-600"
-              />
-              <p className="text-sm text-zinc-500 mt-3">
-                Drag to set your target project budget.
-              </p>
-            </div>
-          </div>
-
-          {/* RIGHT COLUMN */}
-          <div className="space-y-8">
-            {/* Style focus card */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-xl">
-              <h2 className="text-2xl font-semibold mb-4">Style focus</h2>
-              <p className="text-zinc-400 mb-6">
-                Choose the main style direction for your landscape.
-              </p>
-              <div className="space-y-4">
-                {[
-                  {
-                    name: 'Xeriscape',
-                    desc: 'Drought-tolerant plants and decorative rock mulch',
-                    img: 'https://images.unsplash.com/photo-1581092160607-18cd66e26e8c?w=400', // placeholder
-                  },
-                  {
-                    name: 'Permaculture Garden',
-                    desc: 'Herbs, vegetables, fruit trees, layered planting',
-                    img: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400',
-                  },
-                  {
-                    name: 'Water-Wise Native Plants',
-                    desc: 'Lush native plants and a dry creek bed',
-                    img: 'https://images.unsplash.com/photo-1628177142898-93d3c658d424?w=400',
-                  },
-                ].map((style) => (
-                  <button
-                    key={style.name}
-                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all ${
-                      selectedStyle === style.name
-                        ? 'border-emerald-600 bg-emerald-950/30 ring-1 ring-emerald-600'
-                        : 'border-zinc-700 hover:border-zinc-500'
-                    }`}
-                    onClick={() => setSelectedStyle(style.name)}
-                  >
-                    <img
-                      src={style.img}
-                      alt={style.name}
-                      className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
-                    />
-                    <div className="text-left flex-1">
-                      <div className="font-medium flex items-center gap-2">
-                        {style.name}
-                        {selectedStyle === style.name && <Check className="text-emerald-500" size={20} />}
-                      </div>
-                      <div className="text-sm text-zinc-400">{style.desc}</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Elements card */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-xl">
-              <h2 className="text-2xl font-semibold mb-4">Landscape elements</h2>
-              <p className="text-zinc-400 mb-6">
-                Select the features you want included:
-              </p>
-              <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
-                {[
-                  'Native / drought-tolerant plants',
-                  'Drip irrigation system',
-                  'Permeable pathways',
-                  'Rain garden / dry creek bed',
-                  'Raised vegetable beds',
-                  'Pollinator-friendly plants (bees, butterflies)',
-                  'Shade trees / privacy shrubs',
-                  'Mulch or decorative rock ground cover',
-                ].map((item) => (
-                  <label key={item} className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedElements.includes(item)}
-                      onChange={() => toggleElement(item)}
-                      className="w-5 h-5 rounded border-zinc-600 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span className="text-zinc-200">{item}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
+            ) : (
+              <label className="cursor-pointer block">
+                <Upload className="w-16 h-16 mx-auto text-zinc-500 mb-4" />
+                <span className="text-xl text-zinc-300">Click or drag a photo of your yard</span>
+                <p className="text-sm text-zinc-500 mt-2">Front or back yard works best</p>
+                <input type="file" accept="image/*" onChange={handleFile} className="hidden" />
+              </label>
+            )}
           </div>
         </div>
 
-        {/* Generate button */}
-        <div className="mt-12 text-center">
+        {/* Rebate Packages */}
+        <div className="mb-12">
+          <h2 className="text-2xl font-semibold mb-6 text-center">Step 2: Choose your rebate goal</h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {rebatePackages.map((pkg) => (
+              <button
+                key={pkg.id}
+                onClick={() => setSelectedPackage(pkg)}
+                className={`bg-zinc-900 border-2 rounded-3xl p-6 text-left transition-all hover:scale-105 ${
+                  selectedPackage.id === pkg.id ? 'border-emerald-600 bg-emerald-950/30' : 'border-zinc-800 hover:border-zinc-700'
+                }`}
+              >
+                <div className="text-emerald-400 font-bold text-xl mb-1">{pkg.rebate}</div>
+                <div className="font-semibold text-xl mb-2">{pkg.name}</div>
+                <div className="text-sm text-zinc-400 mb-4">{pkg.costRange}</div>
+                <p className="text-zinc-300 text-sm leading-snug">{pkg.desc}</p>
+                {selectedPackage.id === pkg.id && <Check className="mt-4 text-emerald-500" size={28} />}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Generate Button */}
+        <div className="text-center mb-16">
           <button
             onClick={generateImages}
             disabled={loading}
-            className={`bg-emerald-700 hover:bg-emerald-600 text-white text-xl font-semibold py-5 px-16 rounded-3xl transition shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
-              loading ? 'animate-pulse' : ''
-            }`}
+            className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-zinc-800 text-white text-2xl font-semibold px-16 py-6 rounded-3xl transition shadow-xl"
           >
-            {loading ? 'Generating your concepts...' : 'Generate Concept'}
+            {loading ? 'Generating rebate-ready designs...' : `Generate My ${selectedPackage.name} Designs`}
           </button>
         </div>
 
-        {/* Results */}
+        {/* Generated Designs */}
         {designs.length > 0 && (
-          <div className="mt-16">
-            <h2 className="text-3xl font-semibold text-center mb-10">Your Generated Concepts</h2>
+          <div>
+            <h2 className="text-3xl font-semibold text-center mb-10">Your Rebate-Ready Designs</h2>
             <div className="grid md:grid-cols-3 gap-8">
               {designs.map((design, i) => (
-                <div
-                  key={i}
-                  className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl"
-                >
-                  <img src={design.url} alt={`Design ${i + 1}`} className="w-full h-64 object-cover" />
-                  <div className="p-4">
+                <div key={i} className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800">
+                  <img src={design.url} className="w-full h-72 object-cover" />
+                  <div className="p-6">
+                    <button
+                      onClick={() => viewBreakdown(design)}
+                      className="w-full bg-emerald-700 hover:bg-emerald-600 py-4 rounded-2xl font-semibold text-lg mb-4"
+                    >
+                      View Full Breakdown & Estimate
+                    </button>
                     <a
                       href={design.url}
                       download
-                      className="block text-center text-emerald-400 hover:text-emerald-300 font-medium"
+                      className="block text-center text-emerald-400 hover:text-emerald-300"
                     >
-                      Download full resolution
+                      Download High-Res Image
                     </a>
                   </div>
                 </div>
@@ -296,7 +236,54 @@ export default function LandscapeMVP() {
             </div>
           </div>
         )}
+
+        {/* Rebate Info Footer */}
+        <div className="mt-20 text-center text-sm text-zinc-500">
+          <a
+            href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP"
+            target="_blank"
+            className="text-emerald-400 hover:underline"
+          >
+            Apply for the official Xeriscape Incentive Program (XIP) →
+          </a>
+          <p className="mt-6">Recommended local installers: Padden Permaculture and other City-listed contractors</p>
+        </div>
       </div>
+
+      {/* Breakdown Modal */}
+      {selectedDesign && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6 overflow-auto">
+          <div className="bg-zinc-900 max-w-4xl w-full rounded-3xl max-h-[95vh] overflow-auto">
+            <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 p-6 flex justify-between">
+              <h3 className="text-2xl font-semibold">Full Project Breakdown</h3>
+              <button onClick={() => setSelectedDesign(null)} className="text-zinc-400">✕</button>
+            </div>
+
+            <div className="p-8">
+              <img src={selectedDesign.url} className="w-full rounded-2xl mb-8" />
+
+              {breakdownLoading ? (
+                <div className="text-center py-20">Analyzing design and creating detailed estimate...</div>
+              ) : (
+                <div className="prose prose-invert max-w-none text-lg" dangerouslySetInnerHTML={{ __html: breakdown }} />
+              )}
+            </div>
+
+            <div className="p-8 border-t border-zinc-800 flex gap-4">
+              <a
+                href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP"
+                target="_blank"
+                className="flex-1 bg-emerald-700 py-4 rounded-2xl text-center font-semibold"
+              >
+                Apply for Rebate Now →
+              </a>
+              <button onClick={() => setSelectedDesign(null)} className="flex-1 border border-zinc-700 py-4 rounded-2xl">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
