@@ -1,8 +1,7 @@
-
 'use client';
 
 import React, { useState } from 'react';
-import { Upload, X, Check, Download } from 'lucide-react';
+import { Upload, X, Check, Download, Calculator } from 'lucide-react';
 
 const tiers = [
   {
@@ -61,7 +60,7 @@ export default function LandscapeTool() {
     setLoading(true);
     setDesign(null);
     setBreakdown('');
-    setBreakdownLoading(true);
+    setBreakdownLoading(false);
 
     const tierPrompt = selectedTier.prompt;
 
@@ -71,8 +70,7 @@ export default function LandscapeTool() {
     Natural daylight, high detail, professional photography style.`;
 
     try {
-      // Generate ONE image
-      const imgRes = await fetch('/api/generate', {
+      const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -84,37 +82,50 @@ export default function LandscapeTool() {
         }),
       });
 
-      if (!imgRes.ok) {
-        const err = await imgRes.text();
-        throw new Error(`Image generation failed: ${err}`);
+      if (!res.ok) {
+        const errText = await res.text().catch(() => 'No response');
+        throw new Error(`Image generation failed: ${res.status} - ${errText}`);
       }
 
-      const imgData = await imgRes.json();
-      const imageUrl = imgData.data[0].url;
+      const data = await res.json();
+      const imageUrl = data.data?.[0]?.url;
 
-      const newDesign = { url: imageUrl, promptUsed: finalPrompt };
-      setDesign(newDesign);
+      if (!imageUrl) throw new Error('No image URL returned');
 
-      // Immediately generate breakdown
-      const bdRes = await fetch('/api/breakdown', {
+      setDesign({ url: imageUrl, promptUsed: finalPrompt });
+    } catch (err: any) {
+      alert('Design generation failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateBreakdown = async () => {
+    if (!design) return;
+
+    setBreakdownLoading(true);
+    setBreakdown('');
+
+    try {
+      const res = await fetch('/api/breakdown', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageUrl,
+          imageUrl: design.url,
           tier: selectedTier.name,
         }),
       });
 
-      if (bdRes.ok) {
-        const bd = await bdRes.json();
-        setBreakdown(bd.breakdown || 'Breakdown generated.');
-      } else {
-        setBreakdown('Could not generate cost & plant breakdown at this time.');
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '(empty)');
+        throw new Error(`Breakdown failed: ${res.status} - ${errText}`);
       }
+
+      const data = await res.json();
+      setBreakdown(data.breakdown || 'Breakdown generated, but content is empty.');
     } catch (err: any) {
-      alert('Generation failed: ' + (err.message || 'Unknown error'));
+      setBreakdown('Failed to generate breakdown: ' + (err.message || 'Unknown error'));
     } finally {
-      setLoading(false);
       setBreakdownLoading(false);
     }
   };
@@ -192,30 +203,46 @@ export default function LandscapeTool() {
           </button>
         </div>
 
-        {/* Result Section */}
+        {/* Result */}
         {design && (
           <div className="mt-12">
             <h2 className="text-3xl font-semibold text-center mb-8">{selectedTier.name} Design</h2>
-            
+
             <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto">
               <img src={design.url} className="w-full h-96 object-cover" alt="Generated landscape design" />
-              
-              <div className="p-8">
-                {breakdownLoading ? (
-                  <div className="text-center py-12 text-xl">Analyzing design and creating your cost + plant estimate...</div>
-                ) : (
-                  <div className="prose prose-invert max-w-none text-lg leading-relaxed whitespace-pre-wrap">
-                    {breakdown || 'No breakdown available yet.'}
+
+              <div className="p-8 space-y-6">
+                <button
+                  onClick={generateBreakdown}
+                  disabled={breakdownLoading}
+                  className="w-full bg-emerald-800 hover:bg-emerald-700 disabled:bg-zinc-800 text-white py-5 rounded-2xl font-semibold text-xl transition"
+                >
+                  {breakdownLoading ? 'Generating breakdown...' : 'Generate Cost Breakdown, Installation Strategy & Plant List'}
+                </button>
+
+                {breakdown && (
+                  <div className="prose prose-invert max-w-none text-lg leading-relaxed whitespace-pre-wrap border-t border-zinc-800 pt-6">
+                    {breakdown}
+                  </div>
+                )}
+
+                {breakdownLoading && !breakdown && (
+                  <div className="text-center py-8 text-zinc-400">
+                    Analyzing image + creating detailed cost, installation plan (sod cutter + shredded cedar mulch), and native plant list...
                   </div>
                 )}
               </div>
 
               <div className="p-8 border-t border-zinc-800 flex gap-4 flex-wrap justify-center">
-                <a href={design.url} download className="flex-1 bg-emerald-700 py-4 rounded-2xl text-center font-semibold max-w-xs">
+                <a
+                  href={design.url}
+                  download
+                  className="flex-1 bg-emerald-700 py-4 rounded-2xl text-center font-semibold max-w-xs"
+                >
                   Download Design Image
                 </a>
-                <a 
-                  href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP" 
+                <a
+                  href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP"
                   target="_blank"
                   className="flex-1 border border-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-950 max-w-xs"
                 >
