@@ -1,43 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Upload, Download, Wand2, Trash2, X } from 'lucide-react';
-
-interface Design {
-  url: string;
-  promptUsed: string;
-}
+import React, { useState } from 'react';
+import { Upload, X, Check } from 'lucide-react';
 
 export default function LandscapeMVP() {
-  const [apiKey, setApiKey] = useState('');
-  const [prompt, setPrompt] = useState('');
-  const [budget, setBudget] = useState(15000);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
-  const [aspect, setAspect] = useState('16:9');
-
-  const [designs, setDesigns] = useState<Design[]>([]);
+  const [budget, setBudget] = useState(8000);
+  const [selectedStyle, setSelectedStyle] = useState('Xeriscape');
+  const [selectedElements, setSelectedElements] = useState<string[]>([
+    'Native / drought-tolerant plants',
+    'Drip irrigation system',
+    'Mulch or decorative rock ground cover',
+  ]);
   const [loading, setLoading] = useState(false);
-  const [selectedDesign, setSelectedDesign] = useState<Design | null>(null);
-  const [breakdown, setBreakdown] = useState('');
-  const [breakdownLoading, setBreakdownLoading] = useState(false);
-
-  // Load saved key
-  useEffect(() => {
-    const saved = localStorage.getItem('xaiKey');
-    if (saved) setApiKey(saved);
-    setPrompt('Spacious backyard in Fort Collins with Rocky Mountain views, native plants, flagstone patio, and fire pit');
-  }, []);
-
-  const saveKey = (key: string) => {
-    localStorage.setItem('xaiKey', key);
-  };
-
-  const getBudgetStyle = (b: number) => {
-    if (b <= 10000) return 'affordable budget-friendly xeriscape with native Colorado plants, gravel paths, basic mulch, simple flagstone';
-    if (b <= 25000) return 'mid-range professional design with quality paver patio, small water feature or fire pit, drip irrigation, and layered planting';
-    return 'premium luxury landscape with custom natural stone hardscaping, mature trees/shrubs, high-end gas fire feature, smart lighting, and full irrigation system';
-  };
+  const [designs, setDesigns] = useState<{ url: string; promptUsed: string }[]>([]);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -53,18 +30,37 @@ export default function LandscapeMVP() {
     setReferencePreview(null);
   };
 
-  const generateDesigns = async () => {
-    if (!apiKey) return alert('Please enter your xAI API key');
-    saveKey(apiKey);
+  const toggleElement = (item: string) => {
+    setSelectedElements((prev) =>
+      prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
+    );
+  };
 
-    const budgetStyle = getBudgetStyle(budget);
-    let finalPrompt = `${prompt}. ${budgetStyle}. Photorealistic professional landscape photography, golden hour lighting, Rocky Mountain views in background where possible, high detail, Fort Collins Colorado.`;
-
+  const generateImages = async () => {
     setLoading(true);
     setDesigns([]);
 
+    const styleDesc = {
+      Xeriscape: 'drought-tolerant plants, decorative rock mulch, gravel paths, minimal turf',
+      'Permaculture Garden': 'herbs, vegetables, fruit trees, layered planting, companion planting',
+      'Water-Wise Native Plants': 'Colorado native grasses and flowers, dry creek bed or rain garden features',
+    }[selectedStyle] || selectedStyle;
+
+    const elementsStr = selectedElements.join(', ');
+
+    let basePrompt = `Photorealistic landscape design for a Fort Collins, Colorado yard. 
+    ONLY modify the yard, grass, plants, soil, and landscape features. 
+    DO NOT change or alter the house, roof, windows, doors, garage, driveway, sidewalks, fences, existing structures, or architecture in any way. 
+    Keep all non-landscape elements exactly the same as in the reference photo. 
+    Style: ${styleDesc}. 
+    Include these elements: ${elementsStr}. 
+    Budget-conscious design around $${budget.toLocaleString()}. 
+    Natural daylight, high detail, professional photography style.`;
+
+    let finalPrompt = basePrompt;
+
     const isEdit = !!referenceFile;
-    const endpoint = isEdit ? 'https://api.x.ai/v1/images/edits' : 'https://api.x.ai/v1/images/generations';
+    const endpoint = '/api/generate'; // your proxy route
 
     let base64 = '';
     if (isEdit && referenceFile) {
@@ -75,31 +71,24 @@ export default function LandscapeMVP() {
       });
     }
 
-    const body: any = {
-      prompt: isEdit 
-        ? `Transform the uploaded yard photo into: ${finalPrompt}` 
-        : finalPrompt,
-      model: 'grok-imagine-image',
-      response_format: 'url',
-      n: 3,
-      aspect_ratio: aspect,
-    };
-
-    if (isEdit) {
-      body.image = { url: `data:image/jpeg;base64,${base64}` };
-    }
-
     try {
       const res = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: finalPrompt,
+          isEdit,
+          imageBase64: base64 || null,
+          aspect: '16:9',
+          n: 3,
+        }),
       });
 
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const err = await res.json();
+        alert('Error: ' + (err.error || 'Failed to generate designs'));
+        return;
+      }
 
       const data = await res.json();
       const newDesigns = data.data.map((d: any) => ({
@@ -109,227 +98,205 @@ export default function LandscapeMVP() {
 
       setDesigns(newDesigns);
     } catch (err: any) {
-      alert('Error: ' + err.message);
+      alert('Network error: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchBreakdown = async (design: Design) => {
-    setSelectedDesign(design);
-    setBreakdown('');
-    setBreakdownLoading(true);
-
-    const system = `You are a licensed landscape architect and contractor in Fort Collins, Colorado. 
-    You give honest, detailed, realistic quotes using current local material & labor prices (2026). 
-    Always keep the grand total at or below the client's stated budget.`;
-
-    const userMsg = `Design description: ${design.promptUsed}
-Budget: $${budget.toLocaleString()}
-
-Provide in clean Markdown:
-
-## Cost Breakdown
-• Item: $amount (brief explanation)
-...
-
-**Grand Total: $X,XXX** (must be ≤ $${budget})
-
-## Installation Strategy
-1. Phase name (duration)
-...
-
-Best time of year to start: ...
-Local notes (permits, HOA, Colorado climate, etc.)`;
-
-    try {
-      const res = await fetch('https://api.x.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'grok-4-0709',
-          messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: userMsg },
-          ],
-          temperature: 0.7,
-        }),
-      });
-
-      const json = await res.json();
-      setBreakdown(json.choices[0].message.content);
-    } catch (err) {
-      setBreakdown('Sorry, could not generate breakdown right now. Please try again.');
-    } finally {
-      setBreakdownLoading(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      <div className="max-w-5xl mx-auto px-6 py-12">
-        <h1 className="text-6xl font-bold text-center mb-2">🌲 Landscape AI</h1>
-        <p className="text-center text-xl text-zinc-400 mb-12">Fort Collins • Powered by Grok Imagine</p>
+    <div className="min-h-screen bg-zinc-950 text-white py-12 px-6">
+      <div className="max-w-6xl mx-auto">
+        {/* Title */}
+        <h1 className="text-4xl md:text-5xl font-serif font-bold text-center mb-3 text-emerald-600">
+          Fort Collins Xeriscape Design Tool
+        </h1>
+        <p className="text-center text-lg text-zinc-400 mb-12">
+          Create beautiful, water-wise, pollinator-friendly landscapes for your yard
+        </p>
 
-        {/* API Key */}
-        <div className="max-w-md mx-auto mb-12">
-          <label className="block text-sm text-zinc-400 mb-2">xAI API Key</label>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="xai-..."
-            className="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-4 focus:outline-none focus:border-emerald-500"
-          />
-          <p className="text-xs text-zinc-500 mt-2">Saved only in your browser • Get key at console.grok.com</p>
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-10">
-          {/* Form */}
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* LEFT COLUMN */}
           <div className="space-y-8">
-            <div>
-              <label className="block text-sm text-zinc-400 mb-2">Describe your yard or dream design</label>
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={5}
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-3xl p-6 text-lg focus:outline-none focus:border-emerald-500 resize-none"
-                placeholder="Backyard with mountain views, want a fire pit and native garden..."
-              />
-            </div>
-
-            {/* Reference Photo */}
-            <div>
-              <label className="block text-sm text-zinc-400 mb-2">Upload reference photo of your yard (optional but recommended)</label>
-              <div className="border-2 border-dashed border-zinc-700 rounded-3xl p-8 text-center">
+            {/* Upload card */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-xl">
+              <h2 className="text-2xl font-semibold mb-4">Upload photo</h2>
+              <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-8 text-center">
                 {referencePreview ? (
                   <div className="relative inline-block">
-                    <img src={referencePreview} alt="preview" className="max-h-48 rounded-2xl" />
-                    <button onClick={clearReference} className="absolute -top-2 -right-2 bg-red-600 p-1 rounded-full">
-                      <X size={18} />
+                    <img
+                      src={referencePreview}
+                      alt="Yard preview"
+                      className="max-h-64 mx-auto rounded-xl object-cover"
+                    />
+                    <button
+                      onClick={clearReference}
+                      className="absolute -top-3 -right-3 bg-red-600 p-2 rounded-full text-white shadow"
+                    >
+                      <X size={20} />
                     </button>
                   </div>
                 ) : (
                   <label className="cursor-pointer flex flex-col items-center">
-                    <Upload className="w-12 h-12 text-zinc-400 mb-3" />
-                    <span className="text-zinc-400">Click or drag photo here</span>
-                    <input type="file" accept="image/*" onChange={handleFile} className="hidden" />
+                    <Upload className="w-16 h-16 text-zinc-500 mb-4" />
+                    <span className="text-lg text-zinc-300">Upload a photo of your yard</span>
+                    <span className="text-sm text-zinc-500 mt-1">optional but recommended</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFile}
+                      className="hidden"
+                    />
                   </label>
                 )}
               </div>
             </div>
 
-            {/* Budget Slider */}
-            <div>
-              <div className="flex justify-between text-sm text-zinc-400 mb-2">
-                <span>Budget</span>
-                <span className="text-2xl font-semibold text-emerald-400">${budget.toLocaleString()}</span>
+            {/* Budget card */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-xl">
+              <h2 className="text-2xl font-semibold mb-4">Budget</h2>
+              <div className="flex justify-between text-sm text-zinc-400 mb-3">
+                <span>$1,000</span>
+                <span className="text-emerald-400 font-bold">${budget.toLocaleString()}</span>
               </div>
               <input
                 type="range"
-                min={2000}
-                max={50000}
+                min={1000}
+                max={15000}
                 step={500}
                 value={budget}
                 onChange={(e) => setBudget(Number(e.target.value))}
-                className="w-full accent-emerald-500"
+                className="w-full h-3 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-emerald-600"
               />
-              <div className="flex justify-between text-xs text-zinc-500 mt-1">
-                <span>$2k</span>
-                <span>$50k</span>
-              </div>
+              <p className="text-sm text-zinc-500 mt-3">
+                Drag to set your target project budget.
+              </p>
             </div>
-
-            {/* Aspect */}
-            <div>
-              <label className="block text-sm text-zinc-400 mb-2">Aspect Ratio</label>
-              <select
-                value={aspect}
-                onChange={(e) => setAspect(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-4"
-              >
-                <option value="16:9">16:9 Wide (recommended)</option>
-                <option value="1:1">1:1 Square</option>
-                <option value="9:16">9:16 Vertical</option>
-              </select>
-            </div>
-
-            <button
-              onClick={generateDesigns}
-              disabled={loading || !prompt.trim()}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 transition py-5 rounded-3xl font-semibold text-xl flex items-center justify-center gap-3"
-            >
-              {loading ? 'Generating beautiful designs...' : <><Wand2 /> Generate 3 Design Options</>}
-            </button>
           </div>
 
-          {/* Results */}
-          <div>
-            {designs.length > 0 && (
-              <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-3xl font-semibold">Your 3 Designs</h2>
-                  <button onClick={() => setDesigns([])} className="text-zinc-400 hover:text-white flex items-center gap-2">
-                    <Trash2 size={20} /> Clear
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 gap-6">
-                  {designs.map((design, i) => (
-                    <div key={i} className="group relative bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-700 hover:border-emerald-500 transition cursor-pointer"
-                         onClick={() => fetchBreakdown(design)}>
-                      <img src={design.url} className="w-full aspect-video object-cover" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition flex items-end p-6">
-                        <div className="text-lg font-medium">View full breakdown →</div>
+          {/* RIGHT COLUMN */}
+          <div className="space-y-8">
+            {/* Style focus card */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-xl">
+              <h2 className="text-2xl font-semibold mb-4">Style focus</h2>
+              <p className="text-zinc-400 mb-6">
+                Choose the main style direction for your landscape.
+              </p>
+              <div className="space-y-4">
+                {[
+                  {
+                    name: 'Xeriscape',
+                    desc: 'Drought-tolerant plants and decorative rock mulch',
+                    img: 'https://images.unsplash.com/photo-1581092160607-18cd66e26e8c?w=400', // placeholder
+                  },
+                  {
+                    name: 'Permaculture Garden',
+                    desc: 'Herbs, vegetables, fruit trees, layered planting',
+                    img: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400',
+                  },
+                  {
+                    name: 'Water-Wise Native Plants',
+                    desc: 'Lush native plants and a dry creek bed',
+                    img: 'https://images.unsplash.com/photo-1628177142898-93d3c658d424?w=400',
+                  },
+                ].map((style) => (
+                  <button
+                    key={style.name}
+                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all ${
+                      selectedStyle === style.name
+                        ? 'border-emerald-600 bg-emerald-950/30 ring-1 ring-emerald-600'
+                        : 'border-zinc-700 hover:border-zinc-500'
+                    }`}
+                    onClick={() => setSelectedStyle(style.name)}
+                  >
+                    <img
+                      src={style.img}
+                      alt={style.name}
+                      className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
+                    />
+                    <div className="text-left flex-1">
+                      <div className="font-medium flex items-center gap-2">
+                        {style.name}
+                        {selectedStyle === style.name && <Check className="text-emerald-500" size={20} />}
                       </div>
+                      <div className="text-sm text-zinc-400">{style.desc}</div>
                     </div>
-                  ))}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Elements card */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-xl">
+              <h2 className="text-2xl font-semibold mb-4">Landscape elements</h2>
+              <p className="text-zinc-400 mb-6">
+                Select the features you want included:
+              </p>
+              <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                {[
+                  'Native / drought-tolerant plants',
+                  'Drip irrigation system',
+                  'Permeable pathways',
+                  'Rain garden / dry creek bed',
+                  'Raised vegetable beds',
+                  'Pollinator-friendly plants (bees, butterflies)',
+                  'Shade trees / privacy shrubs',
+                  'Mulch or decorative rock ground cover',
+                ].map((item) => (
+                  <label key={item} className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedElements.includes(item)}
+                      onChange={() => toggleElement(item)}
+                      className="w-5 h-5 rounded border-zinc-600 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="text-zinc-200">{item}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Generate button */}
+        <div className="mt-12 text-center">
+          <button
+            onClick={generateImages}
+            disabled={loading}
+            className={`bg-emerald-700 hover:bg-emerald-600 text-white text-xl font-semibold py-5 px-16 rounded-3xl transition shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
+              loading ? 'animate-pulse' : ''
+            }`}
+          >
+            {loading ? 'Generating your concepts...' : 'Generate Concept'}
+          </button>
+        </div>
+
+        {/* Results */}
+        {designs.length > 0 && (
+          <div className="mt-16">
+            <h2 className="text-3xl font-semibold text-center mb-10">Your Generated Concepts</h2>
+            <div className="grid md:grid-cols-3 gap-8">
+              {designs.map((design, i) => (
+                <div
+                  key={i}
+                  className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl"
+                >
+                  <img src={design.url} alt={`Design ${i + 1}`} className="w-full h-64 object-cover" />
+                  <div className="p-4">
+                    <a
+                      href={design.url}
+                      download
+                      className="block text-center text-emerald-400 hover:text-emerald-300 font-medium"
+                    >
+                      Download full resolution
+                    </a>
+                  </div>
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
-
-      {/* Detail Modal */}
-      {selectedDesign && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6">
-          <div className="bg-zinc-900 rounded-3xl max-w-4xl w-full max-h-[95vh] overflow-auto">
-            <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 p-6 flex justify-between items-center z-10">
-              <h2 className="text-2xl font-semibold">Design Details</h2>
-              <button onClick={() => setSelectedDesign(null)}><X size={28} /></button>
-            </div>
-
-            <div className="p-8">
-              <img src={selectedDesign.url} className="w-full rounded-2xl" />
-
-              <div className="mt-10">
-                <h3 className="text-3xl font-semibold mb-6 flex items-center gap-3">
-                  💰 Price Breakdown &amp; Installation Plan
-                </h3>
-
-                {breakdownLoading ? (
-                  <div className="text-center py-20 text-zinc-400">Crafting your detailed quote...</div>
-                ) : (
-                  <div className="prose prose-invert max-w-none text-lg leading-relaxed"
-                       dangerouslySetInnerHTML={{ __html: breakdown.replace(/\n/g, '<br>') }} />
-                )}
-              </div>
-            </div>
-
-            <div className="p-8 border-t border-zinc-800 flex gap-4">
-              <a href={selectedDesign.url} download className="flex-1 bg-white text-black py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 hover:bg-zinc-200">
-                <Download /> Download High-Res Image
-              </a>
-              <button onClick={() => setSelectedDesign(null)} className="flex-1 border border-zinc-700 py-4 rounded-2xl font-semibold hover:bg-zinc-800">
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
