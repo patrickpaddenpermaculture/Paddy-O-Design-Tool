@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Upload, X, Check, Download, MapPin } from 'lucide-react';
+import { Upload, X, Check, Download } from 'lucide-react';
 
 const tiers = [
   {
@@ -36,18 +36,11 @@ const tiers = [
 export default function LandscapeTool() {
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
-  const [selectedTier, setSelectedTier] = useState(tiers[1]);
+  const [selectedTier, setSelectedTier] = useState(tiers[1]); // default Mid-Range
   const [loading, setLoading] = useState(false);
   const [design, setDesign] = useState<{ url: string; promptUsed: string } | null>(null);
-
-  // Breakdown / top-down section states
-  const [showBreakdownSection, setShowBreakdownSection] = useState(false);
-  const [address, setAddress] = useState('');
-  const [satellitePreview, setSatellitePreview] = useState<string | null>(null);
-  const [satelliteFile, setSatelliteFile] = useState<File | null>(null);
-  const [topDownLoading, setTopDownLoading] = useState(false);
-  const [topDownPlan, setTopDownPlan] = useState<string | null>(null);
   const [breakdown, setBreakdown] = useState('');
+  const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,22 +57,12 @@ export default function LandscapeTool() {
     setReferencePreview(null);
   };
 
-  const handleSatelliteFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setSatelliteFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setSatellitePreview(ev.target?.result as string);
-    reader.readAsDataURL(file);
-  };
-
   const generateDesign = async () => {
     setLoading(true);
     setDesign(null);
-    setShowBreakdownSection(false);
-    setTopDownPlan(null);
     setBreakdown('');
     setBreakdownError('');
+    setBreakdownLoading(false);
 
     const tierPrompt = selectedTier.prompt;
 
@@ -101,61 +84,71 @@ export default function LandscapeTool() {
         }),
       });
 
-      if (!res.ok) throw new Error('Image generation failed');
+      if (!res.ok) {
+        const errText = await res.text().catch(() => 'No response');
+        throw new Error(`Image generation failed: ${res.status} - ${errText}`);
+      }
 
       const data = await res.json();
-      const imageUrl = data.data[0].url;
+      const imageUrl = data.data?.[0]?.url;
+
+      if (!imageUrl) throw new Error('No image URL returned');
 
       setDesign({ url: imageUrl, promptUsed: finalPrompt });
-      setShowBreakdownSection(true); // reveal the breakdown section
     } catch (err: any) {
-      alert('Design generation failed: ' + (err.message || 'Unknown'));
+      alert('Design generation failed: ' + (err.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
   };
 
-  const generateTopDownAndBreakdown = async () => {
-    if (!design) return;
+  const generateBreakdown = async () => {
+    if (!design) {
+      alert('No design image generated yet. Please generate a design first.');
+      return;
+    }
 
-    setTopDownLoading(true);
-    setTopDownPlan(null);
+    setBreakdownLoading(true);
     setBreakdown('');
     setBreakdownError('');
 
-    let satelliteUrl = null;
-    if (satelliteFile) {
-      satelliteUrl = await fileToBase64(satelliteFile);
-    } else if (address.trim()) {
-      // Optional: fetch Google Static satellite if you have the key
-      // For now, we'll skip real fetch and just pass address to prompt
-      satelliteUrl = address; // pass as text for prompt context
-    }
-
     try {
-      const res = await fetch('/api/topdown-breakdown', {
+      const res = await fetch('/api/breakdown', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          conceptUrl: design.url,
-          satelliteUrl, // base64 or address string
+          imageUrl: design.url,
           tier: selectedTier.name,
         }),
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Top-down & breakdown failed');
+        let errorDetail = '';
+        try {
+          const errJson = await res.json();
+          errorDetail = errJson.error || `HTTP ${res.status}`;
+        } catch {
+          errorDetail = await res.text() || '(no details)';
+        }
+        throw new Error(`Breakdown request failed: ${errorDetail}`);
       }
 
       const data = await res.json();
 
-      if (data.topDownUrl) setTopDownPlan(data.topDownUrl);
-      if (data.breakdown) setBreakdown(data.breakdown);
+      if (data.breakdown) {
+        setBreakdown(data.breakdown);
+      } else {
+        setBreakdownError('Breakdown was generated but returned empty content.');
+      }
     } catch (err: any) {
-      setBreakdownError(err.message || 'Failed to generate top-down plan and breakdown');
+      console.error('Breakdown error:', err);
+      setBreakdownError(
+        err.message.includes('Model not found') || err.message.includes('invalid argument')
+          ? 'Vision analysis is temporarily unavailable. Try again later or check xAI status.'
+          : 'Failed to generate breakdown: ' + (err.message || 'Unknown error')
+      );
     } finally {
-      setTopDownLoading(false);
+      setBreakdownLoading(false);
     }
   };
 
@@ -177,7 +170,7 @@ export default function LandscapeTool() {
           See what your yard could look like and qualify for up to $1,000 from the City
         </p>
 
-        {/* Upload */}
+        {/* Upload Section */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-12">
           <h2 className="text-2xl font-semibold mb-4">Upload your yard photo (optional)</h2>
           <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-12 text-center">
@@ -221,7 +214,7 @@ export default function LandscapeTool() {
           </div>
         </div>
 
-        {/* Generate Design Button */}
+        {/* Generate Button */}
         <div className="text-center mb-16">
           <button
             onClick={generateDesign}
@@ -232,7 +225,7 @@ export default function LandscapeTool() {
           </button>
         </div>
 
-        {/* Concept Result + Breakdown Section */}
+        {/* Result Section */}
         {design && (
           <div className="mt-12">
             <h2 className="text-3xl font-semibold text-center mb-8">{selectedTier.name} Design</h2>
@@ -240,91 +233,50 @@ export default function LandscapeTool() {
             <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto">
               <img src={design.url} className="w-full h-96 object-cover" alt="Generated landscape design" />
 
-              <div className="p-8 space-y-8">
-                {/* Breakdown Trigger */}
-                <div className="text-center">
-                  <button
-                    onClick={generateTopDownAndBreakdown}
-                    disabled={topDownLoading}
-                    className="bg-emerald-800 hover:bg-emerald-700 disabled:bg-zinc-800 text-white py-5 px-12 rounded-2xl font-semibold text-xl transition"
-                  >
-                    {topDownLoading
-                      ? 'Analyzing & creating top-down plan...'
-                      : 'Generate Cost Breakdown & Top-Down Landscape Plan'}
-                  </button>
-                  <p className="text-sm text-zinc-500 mt-3">
-                    Optional: enter address or upload satellite/top-view image below for more accurate square footage & plan
-                  </p>
-                </div>
-
-                {/* Address / Satellite Input */}
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-lg mb-2">Home address</label>
-                    <input
-                      type="text"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="1234 Maple St, Fort Collins, CO 80525"
-                      className="w-full p-4 bg-zinc-900 border border-zinc-700 rounded-2xl text-white"
-                    />
-                    <p className="text-xs text-zinc-500 mt-1">Used to fetch satellite view. Not stored.</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-lg mb-2">Or upload satellite/top-view image</label>
-                    <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-6 text-center">
-                      {satellitePreview ? (
-                        <div className="relative">
-                          <img src={satellitePreview} className="max-h-48 mx-auto rounded-xl" alt="Satellite preview" />
-                          <button onClick={() => { setSatelliteFile(null); setSatellitePreview(null); }} className="absolute top-2 right-2 bg-red-600 p-1 rounded-full">
-                            <X size={16} />
-                          </button>
-                        </div>
-                      ) : (
-                        <label className="cursor-pointer">
-                          <Upload className="w-10 h-10 mx-auto text-zinc-500 mb-2" />
-                          <span className="text-sm text-zinc-400">Click or drag image</span>
-                          <input type="file" accept="image/*" onChange={handleSatelliteFile} className="hidden" />
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Top-Down Plan Result */}
-                {topDownLoading && (
-                  <div className="text-center py-8 text-zinc-400">
-                    Generating top-down plan + accurate estimates...
-                  </div>
-                )}
-
-                {topDownPlan && (
-                  <div className="border-t border-zinc-800 pt-6">
-                    <h3 className="text-2xl font-semibold mb-4">Top-Down Landscape Plan</h3>
-                    <img src={topDownPlan} className="w-full rounded-2xl mb-6" alt="Top-down plan" />
-                  </div>
-                )}
-
-                {/* Breakdown Text */}
-                {breakdown && (
-                  <div className="prose prose-invert max-w-none text-lg leading-relaxed border-t border-zinc-800 pt-6">
-                    {breakdown}
-                  </div>
-                )}
+              <div className="p-8 space-y-6">
+                <button
+                  onClick={generateBreakdown}
+                  disabled={breakdownLoading}
+                  className="w-full bg-emerald-800 hover:bg-emerald-700 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-semibold text-xl transition"
+                >
+                  {breakdownLoading 
+                    ? 'Analyzing image...' 
+                    : 'Generate Cost Breakdown, Installation Strategy & Plant List'}
+                </button>
 
                 {breakdownError && (
                   <div className="bg-red-950/50 border border-red-800 text-red-200 p-6 rounded-2xl">
                     {breakdownError}
                   </div>
                 )}
+
+                {breakdown && !breakdownError && (
+                  <div className="prose prose-invert max-w-none text-lg leading-relaxed whitespace-pre-wrap border-t border-zinc-800 pt-6">
+                    {breakdown}
+                  </div>
+                )}
+
+                {breakdownLoading && !breakdown && !breakdownError && (
+                  <div className="text-center py-8 text-zinc-400 italic">
+                    Analyzing your design image...<br />
+                    Creating realistic estimate with sod cutter for grass removal + shredded cedar mulch, plus native plant recommendations...
+                  </div>
+                )}
               </div>
 
               <div className="p-8 border-t border-zinc-800 flex gap-4 flex-wrap justify-center">
-                <a href={design.url} download className="flex-1 bg-emerald-700 py-4 rounded-2xl text-center font-semibold max-w-xs">
-                  Download Concept Image
+                <a
+                  href={design.url}
+                  download
+                  className="flex-1 bg-emerald-700 py-4 rounded-2xl text-center font-semibold max-w-xs"
+                >
+                  Download Design Image
                 </a>
-                <a href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP" target="_blank" className="flex-1 border border-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-950 max-w-xs">
+                <a
+                  href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP"
+                  target="_blank"
+                  className="flex-1 border border-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-950 max-w-xs"
+                >
                   Apply for Rebate →
                 </a>
               </div>
