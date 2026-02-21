@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Upload, X, Check, Download } from 'lucide-react';
+import { Upload, X, Check, Download, Calculator } from 'lucide-react';
 
 const tiers = [
   {
@@ -170,7 +170,7 @@ export default function LandscapeTool() {
           See what your yard could look like and qualify for up to $1,000 from the City
         </p>
 
-        {/* Upload Section */}
+        {/* Upload */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-12">
           <h2 className="text-2xl font-semibold mb-4">Upload your yard photo (optional)</h2>
           <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-12 text-center">
@@ -225,7 +225,7 @@ export default function LandscapeTool() {
           </button>
         </div>
 
-        {/* Result Section */}
+        {/* Result */}
         {design && (
           <div className="mt-12">
             <h2 className="text-3xl font-semibold text-center mb-8">{selectedTier.name} Design</h2>
@@ -240,7 +240,7 @@ export default function LandscapeTool() {
                   className="w-full bg-emerald-800 hover:bg-emerald-700 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-semibold text-xl transition"
                 >
                   {breakdownLoading 
-                    ? 'Analyzing image...' 
+                    ? 'Analyzing image and creating estimate...' 
                     : 'Generate Cost Breakdown, Installation Strategy & Plant List'}
                 </button>
 
@@ -258,8 +258,8 @@ export default function LandscapeTool() {
 
                 {breakdownLoading && !breakdown && !breakdownError && (
                   <div className="text-center py-8 text-zinc-400 italic">
-                    Analyzing your design image...<br />
-                    Creating realistic estimate with sod cutter for grass removal + shredded cedar mulch, plus native plant recommendations...
+                    Analyzing your design...<br />
+                    Creating estimate with sod cutter for grass removal + shredded cedar mulch, plus native plant recommendations...
                   </div>
                 )}
               </div>
