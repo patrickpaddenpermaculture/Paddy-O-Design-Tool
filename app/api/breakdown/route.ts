@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
   try {
-    // Safely parse request body
     let body;
     try {
       body = await req.json();
@@ -14,17 +13,16 @@ export async function POST(req: NextRequest) {
     const { imageUrl, tier } = body;
 
     if (!imageUrl) {
-      console.error('[breakdown] Missing imageUrl in request');
+      console.error('[breakdown] Missing imageUrl');
       return NextResponse.json({ error: 'Missing image URL' }, { status: 400 });
     }
 
     const apiKey = process.env.XAI_API_KEY;
     if (!apiKey) {
-      console.error('[breakdown] XAI_API_KEY not set in environment variables');
-      return NextResponse.json({ error: 'Server configuration error: API key missing' }, { status: 500 });
+      console.error('[breakdown] XAI_API_KEY not set');
+      return NextResponse.json({ error: 'Server error: API key missing' }, { status: 500 });
     }
 
-    // System prompt with your specific instructions
     const systemPrompt = `You are a licensed landscape architect and contractor in Fort Collins, Colorado (2026 pricing).
 Analyze this xeriscape design image for a homeowner qualifying for the City's Xeriscape Incentive Program.
 
@@ -49,7 +47,7 @@ Heavy on Colorado natives from the official Fort Collins Nature in the City Desi
 - Purpose/role
 - Approx. cost per plant
 
-Be encouraging, practical, and rebate-focused.`;
+Be encouraging and practical.`;
 
     const res = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
@@ -58,7 +56,7 @@ Be encouraging, practical, and rebate-focused.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'grok-vision',  // Safe, working vision model as of 2026
+        model: 'grok-2-vision-1212',  // Correct, working vision model
         messages: [
           { role: 'system', content: systemPrompt },
           {
@@ -76,28 +74,23 @@ Be encouraging, practical, and rebate-focused.`;
 
     if (!res.ok) {
       const errorText = await res.text();
-      console.error('[breakdown] xAI API error:', res.status, errorText);
+      console.error('[breakdown] xAI error:', res.status, errorText);
       return NextResponse.json(
-        { error: `xAI API failed (${res.status}): ${errorText || 'No details provided'}` },
+        { error: `xAI failed (${res.status}): ${errorText || 'No details'}` },
         { status: res.status }
       );
     }
 
     const data = await res.json();
-
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
-      console.error('[breakdown] No content in xAI response');
-      return NextResponse.json({ error: 'xAI returned empty or invalid response' }, { status: 500 });
+      return NextResponse.json({ error: 'xAI returned empty response' }, { status: 500 });
     }
 
     return NextResponse.json({ breakdown: content });
   } catch (err: any) {
-    console.error('[breakdown] Internal server error:', err.message, err.stack);
-    return NextResponse.json(
-      { error: 'Internal server error: ' + (err.message || 'unknown') },
-      { status: 500 }
-    );
+    console.error('[breakdown] Crash:', err.message, err.stack);
+    return NextResponse.json({ error: 'Internal error: ' + (err.message || 'unknown') }, { status: 500 });
   }
 }
