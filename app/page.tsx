@@ -40,7 +40,7 @@ export default function LandscapeTool() {
   const [loading, setLoading] = useState(false);
   const [design, setDesign] = useState<{ url: string; promptUsed: string } | null>(null);
 
-  // Breakdown / top-down section
+  // Breakdown / top-down section states
   const [showBreakdownSection, setShowBreakdownSection] = useState(false);
   const [address, setAddress] = useState('');
   const [satellitePreview, setSatellitePreview] = useState<string | null>(null);
@@ -107,7 +107,7 @@ export default function LandscapeTool() {
       const imageUrl = data.data[0].url;
 
       setDesign({ url: imageUrl, promptUsed: finalPrompt });
-      setShowBreakdownSection(true);
+      setShowBreakdownSection(true); // reveal the breakdown section
     } catch (err: any) {
       alert('Design generation failed: ' + (err.message || 'Unknown'));
     } finally {
@@ -123,16 +123,13 @@ export default function LandscapeTool() {
     setBreakdown('');
     setBreakdownError('');
 
-    let satelliteReference = null;
-
-    // Prefer uploaded satellite image if provided
+    let satelliteUrl = null;
     if (satelliteFile) {
-      satelliteReference = await fileToBase64(satelliteFile);
-    } 
-    // Else use address to fetch from Google Static Maps (if key exists)
-    else if (address.trim() && process.env.GOOGLE_MAPS_API_KEY) {
-      const encodedAddress = encodeURIComponent(address);
-      satelliteReference = `https://maps.googleapis.com/maps/api/staticmap?center=${encodedAddress}&zoom=20&size=640x640&maptype=satellite&key=${process.env.GOOGLE_MAPS_API_KEY}`;
+      satelliteUrl = await fileToBase64(satelliteFile);
+    } else if (address.trim()) {
+      // Optional: fetch Google Static satellite if you have the key
+      // For now, we'll skip real fetch and just pass address to prompt
+      satelliteUrl = address; // pass as text for prompt context
     }
 
     try {
@@ -141,20 +138,20 @@ export default function LandscapeTool() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conceptUrl: design.url,
-          satelliteReference, // base64 or direct Google URL
+          satelliteUrl, // base64 or address string
           tier: selectedTier.name,
         }),
       });
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || 'Failed to generate top-down & breakdown');
+        throw new Error(err.error || 'Top-down & breakdown failed');
       }
 
       const data = await res.json();
 
-      setTopDownPlan(data.topDownUrl);
-      setBreakdown(data.breakdown);
+      if (data.topDownUrl) setTopDownPlan(data.topDownUrl);
+      if (data.breakdown) setBreakdown(data.breakdown);
     } catch (err: any) {
       setBreakdownError(err.message || 'Failed to generate top-down plan and breakdown');
     } finally {
@@ -224,7 +221,7 @@ export default function LandscapeTool() {
           </div>
         </div>
 
-        {/* Generate Design */}
+        {/* Generate Design Button */}
         <div className="text-center mb-16">
           <button
             onClick={generateDesign}
@@ -235,7 +232,7 @@ export default function LandscapeTool() {
           </button>
         </div>
 
-        {/* Concept + Breakdown Section */}
+        {/* Concept Result + Breakdown Section */}
         {design && (
           <div className="mt-12">
             <h2 className="text-3xl font-semibold text-center mb-8">{selectedTier.name} Design</h2>
@@ -244,70 +241,61 @@ export default function LandscapeTool() {
               <img src={design.url} className="w-full h-96 object-cover" alt="Generated landscape design" />
 
               <div className="p-8 space-y-8">
-                {/* Trigger Breakdown */}
+                {/* Breakdown Trigger */}
                 <div className="text-center">
                   <button
-                    onClick={() => setShowBreakdownSection(true)}
-                    className="bg-emerald-800 hover:bg-emerald-700 text-white py-5 px-12 rounded-2xl font-semibold text-xl transition"
+                    onClick={generateTopDownAndBreakdown}
+                    disabled={topDownLoading}
+                    className="bg-emerald-800 hover:bg-emerald-700 disabled:bg-zinc-800 text-white py-5 px-12 rounded-2xl font-semibold text-xl transition"
                   >
-                    Generate Cost Breakdown & Top-Down Plan
+                    {topDownLoading
+                      ? 'Analyzing & creating top-down plan...'
+                      : 'Generate Cost Breakdown & Top-Down Landscape Plan'}
                   </button>
+                  <p className="text-sm text-zinc-500 mt-3">
+                    Optional: enter address or upload satellite/top-view image below for more accurate square footage & plan
+                  </p>
                 </div>
 
-                {/* Breakdown Inputs - shown after clicking trigger */}
-                {showBreakdownSection && (
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-lg mb-2">Enter home address</label>
-                      <input
-                        type="text"
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        placeholder="1234 Maple St, Fort Collins, CO 80525"
-                        className="w-full p-4 bg-zinc-900 border border-zinc-700 rounded-2xl text-white"
-                      />
-                      <p className="text-xs text-zinc-500 mt-1">Used to fetch satellite view (not stored)</p>
-                    </div>
+                {/* Address / Satellite Input */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-lg mb-2">Home address</label>
+                    <input
+                      type="text"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="1234 Maple St, Fort Collins, CO 80525"
+                      className="w-full p-4 bg-zinc-900 border border-zinc-700 rounded-2xl text-white"
+                    />
+                    <p className="text-xs text-zinc-500 mt-1">Used to fetch satellite view. Not stored.</p>
+                  </div>
 
-                    <div>
-                      <label className="block text-lg mb-2">Or upload satellite/top-view image</label>
-                      <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-6 text-center">
-                        {satellitePreview ? (
-                          <div className="relative">
-                            <img src={satellitePreview} className="max-h-48 mx-auto rounded-xl" alt="Satellite preview" />
-                            <button onClick={() => { setSatelliteFile(null); setSatellitePreview(null); }} className="absolute top-2 right-2 bg-red-600 p-1 rounded-full">
-                              <X size={16} />
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="cursor-pointer">
-                            <Upload className="w-10 h-10 mx-auto text-zinc-500 mb-2" />
-                            <span className="text-sm text-zinc-400">Click or drag image</span>
-                            <input type="file" accept="image/*" onChange={handleSatelliteFile} className="hidden" />
-                          </label>
-                        )}
-                      </div>
+                  <div>
+                    <label className="block text-lg mb-2">Or upload satellite/top-view image</label>
+                    <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-6 text-center">
+                      {satellitePreview ? (
+                        <div className="relative">
+                          <img src={satellitePreview} className="max-h-48 mx-auto rounded-xl" alt="Satellite preview" />
+                          <button onClick={() => { setSatelliteFile(null); setSatellitePreview(null); }} className="absolute top-2 right-2 bg-red-600 p-1 rounded-full">
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="cursor-pointer">
+                          <Upload className="w-10 h-10 mx-auto text-zinc-500 mb-2" />
+                          <span className="text-sm text-zinc-400">Click or drag image</span>
+                          <input type="file" accept="image/*" onChange={handleSatelliteFile} className="hidden" />
+                        </label>
+                      )}
                     </div>
                   </div>
-                )}
+                </div>
 
-                {/* Generate Top-Down & Breakdown */}
-                {showBreakdownSection && (
-                  <div className="text-center">
-                    <button
-                      onClick={generateTopDownAndBreakdown}
-                      disabled={topDownLoading || (!address.trim() && !satelliteFile)}
-                      className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-zinc-800 text-white py-5 px-12 rounded-2xl font-semibold text-xl transition"
-                    >
-                      {topDownLoading ? 'Generating top-down plan...' : 'Generate Top-Down Plan & Breakdown'}
-                    </button>
-                  </div>
-                )}
-
-                {/* Top-Down Result */}
+                {/* Top-Down Plan Result */}
                 {topDownLoading && (
                   <div className="text-center py-8 text-zinc-400">
-                    Combining concept with satellite view...
+                    Generating top-down plan + accurate estimates...
                   </div>
                 )}
 
