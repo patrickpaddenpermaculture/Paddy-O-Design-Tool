@@ -41,6 +41,7 @@ export default function LandscapeTool() {
   const [design, setDesign] = useState<{ url: string; promptUsed: string } | null>(null);
   const [breakdown, setBreakdown] = useState('');
   const [breakdownLoading, setBreakdownLoading] = useState(false);
+  const [breakdownError, setBreakdownError] = useState('');
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -60,6 +61,7 @@ export default function LandscapeTool() {
     setLoading(true);
     setDesign(null);
     setBreakdown('');
+    setBreakdownError('');
     setBreakdownLoading(false);
 
     const tierPrompt = selectedTier.prompt;
@@ -102,12 +104,13 @@ export default function LandscapeTool() {
 
   const generateBreakdown = async () => {
     if (!design) {
-      alert('No design generated yet.');
+      alert('No design image generated yet. Please generate a design first.');
       return;
     }
 
     setBreakdownLoading(true);
     setBreakdown('');
+    setBreakdownError('');
 
     try {
       const res = await fetch('/api/breakdown', {
@@ -120,14 +123,30 @@ export default function LandscapeTool() {
       });
 
       if (!res.ok) {
-        const errText = await res.text().catch(() => '(empty)');
-        throw new Error(`Breakdown failed: ${res.status} - ${errText}`);
+        let errorDetail = '';
+        try {
+          const errJson = await res.json();
+          errorDetail = errJson.error || `HTTP ${res.status}`;
+        } catch {
+          errorDetail = await res.text() || '(no details)';
+        }
+        throw new Error(`Breakdown request failed: ${errorDetail}`);
       }
 
       const data = await res.json();
-      setBreakdown(data.breakdown || 'Breakdown generated, but content is empty.');
+
+      if (data.breakdown) {
+        setBreakdown(data.breakdown);
+      } else {
+        setBreakdownError('Breakdown was generated but returned empty content.');
+      }
     } catch (err: any) {
-      setBreakdown('Failed to generate breakdown: ' + (err.message || 'Unknown error'));
+      console.error('Breakdown error:', err);
+      setBreakdownError(
+        err.message.includes('Model not found') || err.message.includes('invalid argument')
+          ? 'Vision analysis is temporarily unavailable. Try again later or check xAI status.'
+          : 'Failed to generate breakdown: ' + (err.message || 'Unknown error')
+      );
     } finally {
       setBreakdownLoading(false);
     }
@@ -151,7 +170,7 @@ export default function LandscapeTool() {
           See what your yard could look like and qualify for up to $1,000 from the City
         </p>
 
-        {/* Upload Section */}
+        {/* Upload */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-12">
           <h2 className="text-2xl font-semibold mb-4">Upload your yard photo (optional)</h2>
           <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-12 text-center">
@@ -172,7 +191,7 @@ export default function LandscapeTool() {
           </div>
         </div>
 
-        {/* Tier Selection - Step 2 */}
+        {/* Tier Selection */}
         <div className="mb-12">
           <h2 className="text-2xl font-semibold mb-6 text-center">Choose your project level</h2>
           <div className="grid md:grid-cols-3 gap-6">
@@ -206,7 +225,7 @@ export default function LandscapeTool() {
           </button>
         </div>
 
-        {/* Result Section */}
+        {/* Result */}
         {design && (
           <div className="mt-12">
             <h2 className="text-3xl font-semibold text-center mb-8">{selectedTier.name} Design</h2>
@@ -218,20 +237,29 @@ export default function LandscapeTool() {
                 <button
                   onClick={generateBreakdown}
                   disabled={breakdownLoading}
-                  className="w-full bg-emerald-800 hover:bg-emerald-700 disabled:bg-zinc-800 text-white py-5 rounded-2xl font-semibold text-xl transition"
+                  className="w-full bg-emerald-800 hover:bg-emerald-700 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-semibold text-xl transition"
                 >
-                  {breakdownLoading ? 'Generating breakdown...' : 'Generate Cost Breakdown, Installation Strategy & Plant List'}
+                  {breakdownLoading 
+                    ? 'Analyzing image and creating estimate...' 
+                    : 'Generate Cost Breakdown, Installation Strategy & Plant List'}
                 </button>
 
-                {breakdown && (
+                {breakdownError && (
+                  <div className="bg-red-950/50 border border-red-800 text-red-200 p-6 rounded-2xl">
+                    {breakdownError}
+                  </div>
+                )}
+
+                {breakdown && !breakdownError && (
                   <div className="prose prose-invert max-w-none text-lg leading-relaxed whitespace-pre-wrap border-t border-zinc-800 pt-6">
                     {breakdown}
                   </div>
                 )}
 
-                {breakdownLoading && !breakdown && (
-                  <div className="text-center py-8 text-zinc-400">
-                    Analyzing image + creating detailed cost, installation plan (sod cutter + shredded cedar mulch), and native plant list...
+                {breakdownLoading && !breakdown && !breakdownError && (
+                  <div className="text-center py-8 text-zinc-400 italic">
+                    Analyzing your design...<br />
+                    Creating estimate with sod cutter for grass removal + shredded cedar mulch, plus native plant recommendations...
                   </div>
                 )}
               </div>
