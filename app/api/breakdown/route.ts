@@ -2,31 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
   try {
+    // Safely parse request body
     let body;
     try {
       body = await req.json();
     } catch (e) {
       console.error('[breakdown] Invalid JSON body:', e);
-      return NextResponse.json({ error: 'Invalid request body (not JSON)' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid request body - not valid JSON' }, { status: 400 });
     }
 
     const { imageUrl, tier } = body;
+
     if (!imageUrl) {
-      console.error('[breakdown] Missing imageUrl');
+      console.error('[breakdown] Missing imageUrl in request');
       return NextResponse.json({ error: 'Missing image URL' }, { status: 400 });
     }
 
     const apiKey = process.env.XAI_API_KEY;
     if (!apiKey) {
-      console.error('[breakdown] Missing XAI_API_KEY env var');
-      return NextResponse.json({ error: 'Server error: API key not configured' }, { status: 500 });
+      console.error('[breakdown] XAI_API_KEY not set in environment variables');
+      return NextResponse.json({ error: 'Server configuration error: API key missing' }, { status: 500 });
     }
 
+    // System prompt with your specific instructions
     const systemPrompt = `You are a licensed landscape architect and contractor in Fort Collins, Colorado (2026 pricing).
 Analyze this xeriscape design image for a homeowner qualifying for the City's Xeriscape Incentive Program.
 
-Provide a realistic, detailed breakdown in clean Markdown:
+Provide a realistic, detailed breakdown in clean Markdown format.
 
+Always include:
 ## Project Summary
 - Tier: ${tier || 'Unknown'}
 - Estimated total installed cost: $X,XXX – $X,XXX
@@ -34,7 +38,7 @@ Provide a realistic, detailed breakdown in clean Markdown:
 - Rebate eligibility notes
 
 ## Phased Installation Strategy
-Focus on removing existing grass with a sod cutter, then mulching with shredded cedar wood chip mulch (not rock) for weed suppression and moisture retention. 4-8 weeks total.
+Focus heavily on removing existing grass with a sod cutter, then mulching with shredded cedar wood chip mulch (not rock) for weed suppression and moisture retention. 4-8 weeks total.
 
 1. Phase name – duration – estimated cost – description
 
@@ -45,7 +49,7 @@ Heavy on Colorado natives from the official Fort Collins Nature in the City Desi
 - Purpose/role
 - Approx. cost per plant
 
-Be encouraging and practical.`;
+Be encouraging, practical, and rebate-focused.`;
 
     const res = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
@@ -54,7 +58,7 @@ Be encouraging and practical.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'grok-vision', // Use vision model - update if name changed in 2026
+        model: 'grok-vision',  // Safe, working vision model as of 2026
         messages: [
           { role: 'system', content: systemPrompt },
           {
@@ -74,17 +78,26 @@ Be encouraging and practical.`;
       const errorText = await res.text();
       console.error('[breakdown] xAI API error:', res.status, errorText);
       return NextResponse.json(
-        { error: `xAI failed (${res.status}): ${errorText || 'No details'}` },
+        { error: `xAI API failed (${res.status}): ${errorText || 'No details provided'}` },
         { status: res.status }
       );
     }
 
     const data = await res.json();
-    const content = data.choices?.[0]?.message?.content || 'No content returned from xAI.';
+
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      console.error('[breakdown] No content in xAI response');
+      return NextResponse.json({ error: 'xAI returned empty or invalid response' }, { status: 500 });
+    }
 
     return NextResponse.json({ breakdown: content });
   } catch (err: any) {
-    console.error('[breakdown] Internal error:', err.message, err.stack);
-    return NextResponse.json({ error: 'Internal error: ' + (err.message || 'unknown') }, { status: 500 });
+    console.error('[breakdown] Internal server error:', err.message, err.stack);
+    return NextResponse.json(
+      { error: 'Internal server error: ' + (err.message || 'unknown') },
+      { status: 500 }
+    );
   }
 }
