@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { conceptUrl, satelliteUrl, tier } = body;
+    const { conceptUrl, satelliteReference, tier } = body;
 
     if (!conceptUrl) {
       return NextResponse.json({ error: 'Missing concept image URL' }, { status: 400 });
@@ -17,30 +17,26 @@ export async function POST(req: NextRequest) {
     const endpoint = process.env.OPENAI_API_KEY ? 'https://api.openai.com/v1/chat/completions' : 'https://api.x.ai/v1/chat/completions';
     const model = process.env.OPENAI_API_KEY ? 'gpt-4o' : 'grok-vision';
 
-    const systemPrompt = `You are a landscape architect in Fort Collins, Colorado.
-Given the concept design image and satellite/top-view reference (if provided), create:
-1. A clean 2D top-down landscape plan image (architectural style, labeled features, estimated square footage for mulch/hardscape/plant areas)
-2. Detailed cost breakdown, installation strategy (sod cutter for grass removal + shredded cedar mulch), and plant list (Colorado natives heavy).
-
-Output in Markdown with the top-down image URL first.`;
-
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: `Tier: ${tier || 'Unknown'}. Concept design:` },
-          { type: 'image_url', image_url: { url: conceptUrl } },
-        ],
-      },
+    // Always start content as an ARRAY so .push() is safe
+    const userContent: any[] = [
+      { type: 'text', text: `Tier: ${tier || 'Unknown'}. Concept design:` },
+      { type: 'image_url', image_url: { url: conceptUrl } },
     ];
 
-    if (satelliteUrl) {
-      messages[1].content.push({
+    // Add satellite reference if provided
+    if (satelliteReference) {
+      userContent.push({
         type: 'image_url',
-        image_url: { url: satelliteUrl },
+        image_url: { url: satelliteReference },
       });
     }
+
+    const systemPrompt = `You are a landscape architect in Fort Collins, CO.
+Given the concept design and satellite/top-view reference (if provided), create:
+- A top-down 2D landscape plan image (architectural style, labeled features, estimated sq ft for mulch/hardscape/plants)
+- Accurate cost estimate, installation strategy (sod cutter + shredded cedar mulch), plant list (Colorado natives heavy)
+
+Output Markdown with top-down image URL first (if generated), then breakdown.`;
 
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -50,7 +46,10 @@ Output in Markdown with the top-down image URL first.`;
       },
       body: JSON.stringify({
         model,
-        messages,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent },
+        ],
         temperature: 0.7,
         max_tokens: 2500,
       }),
@@ -58,19 +57,19 @@ Output in Markdown with the top-down image URL first.`;
 
     if (!res.ok) {
       const err = await res.text();
-      return NextResponse.json({ error: `API error: ${err}` }, { status: res.status });
+      console.error('API error:', res.status, err);
+      return NextResponse.json({ error: `API error (${res.status}): ${err || 'No details'}` }, { status: res.status });
     }
 
     const data = await res.json();
-    const content = data.choices[0].message.content;
+    const content = data.choices?.[0]?.message?.content || 'No response content';
 
-    // Assume the response includes a generated image URL or description; in practice you may need to parse or generate separately
-    // For simplicity, we return the text breakdown + placeholder for top-down
     return NextResponse.json({
       breakdown: content,
-      topDownUrl: 'placeholder-topdown-url-from-ai-or-generate-separately', // in real use, you'd chain another image gen call if needed
+      topDownUrl: 'https://via.placeholder.com/640x640?text=Top-Down+Plan+Generated', // Replace with real image gen later
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('Internal error:', err.message, err.stack);
+    return NextResponse.json({ error: 'Internal error: ' + (err.message || 'unknown') }, { status: 500 });
   }
 }
