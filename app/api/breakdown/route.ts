@@ -70,13 +70,13 @@ Table format with columns: Common Name (Scientific Name) | Quantity (approx.) | 
 
 Be encouraging, practical, and specific to Colorado natives from Fort Collins Nature in the City guidelines.`;
 
-    // Build the user content array safely (never push on a string)
+    // Build user content as an array from the beginning (TS-safe)
     const userContent: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = [
       { type: 'text', text: 'Analyze these images for a realistic Fort Collins xeriscape estimate:' },
       { type: 'image_url', image_url: { url: imageUrl } },
     ];
 
-    // Safely add the original photo if it was provided
+    // Add original photo if it exists (still safe push on array)
     if (originalImageBase64) {
       userContent.push({
         type: 'image_url',
