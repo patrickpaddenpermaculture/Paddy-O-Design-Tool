@@ -11,14 +11,16 @@ export default function LandscapeTool() {
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
 
-  // === NEW CUSTOMIZATION STATE ===
-  const [nativePlanting, setNativePlanting] = useState(true);           // default on — most important for rebate
+  // Customization state
+  const [nativePlanting, setNativePlanting] = useState(true);
   const [rainGarden, setRainGarden] = useState(false);
   const [hardscape, setHardscape] = useState(false);
   const [hardscapeType, setHardscapeType] = useState<'walkway' | 'walkway-patio'>('walkway');
   const [hardscapeMaterial, setHardscapeMaterial] = useState<'stone' | 'pavers'>('pavers');
   const [edibleGuild, setEdibleGuild] = useState(false);
-  const [guildType, setGuildType] = useState<'culinary' | 'medicinal' | 'fruit'>('culinary');
+  const [culinaryGuild, setCulinaryGuild] = useState(false);
+  const [medicinalGuild, setMedicinalGuild] = useState(false);
+  const [fruitGuild, setFruitGuild] = useState(false);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -59,17 +61,19 @@ export default function LandscapeTool() {
     }
     if (hardscape) {
       const hs = hardscapeType === 'walkway-patio'
-        ? 'walkway AND patio'
-        : 'walkway';
+        ? 'permeable walkway AND patio'
+        : 'permeable walkway';
       const mat = hardscapeMaterial === 'stone' ? 'natural stone' : 'pavers';
       features.push(`${hs} made of ${mat}`);
     }
     if (edibleGuild) {
-      const guildDesc = 
-        guildType === 'culinary' ? 'culinary herb and vegetable guild' :
-        guildType === 'medicinal' ? 'medicinal herb guild' :
-        'fruit tree and berry bush guild';
-      features.push(guildDesc);
+      const guilds: string[] = [];
+      if (culinaryGuild) guilds.push('culinary herb and vegetable guild');
+      if (medicinalGuild) guilds.push('medicinal herb guild');
+      if (fruitGuild) guilds.push('fruit tree and berry bush guild');
+      if (guilds.length > 0) {
+        features.push(guilds.join(', '));
+      }
     }
 
     const featureString = features.length 
@@ -175,7 +179,7 @@ Natural daylight, high detail, professional photography style.`;
           Fort Collins Landscape Design Tool
         </h1>
         <p className="text-center text-xl text-zinc-400 mb-12">
-          Build your perfect xeriscape — see what your yard could look like and qualify for up to $1,000 rebate
+          Design Your Dream Landscape in Fort Collins and Unlock Up to $1,000 in City Rebates
         </p>
 
         {/* Upload Section */}
@@ -211,13 +215,13 @@ Natural daylight, high detail, professional photography style.`;
           </div>
         </div>
 
-        {/* === CUSTOMIZE FEATURES SECTION === */}
+        {/* CUSTOMIZE FEATURES SECTION */}
         <div className="mb-12">
           <h2 className="text-3xl font-semibold text-center mb-8">Customize Your Landscape</h2>
           
           <div className="space-y-8">
 
-            {/* 1. Native Planting + Rebate Sticker */}
+            {/* Native Planting + Rebate Sticker */}
             <div className="bg-zinc-900 border border-emerald-700 rounded-3xl p-8 relative">
               <div className="absolute -top-3 -right-3 bg-emerald-600 text-white text-xs font-bold px-4 py-1 rounded-full flex items-center gap-1">
                 <Award size={16} /> UP TO $1,000 REBATE AVAILABLE
@@ -236,7 +240,7 @@ Natural daylight, high detail, professional photography style.`;
               </label>
             </div>
 
-            {/* 2. Rain Garden */}
+            {/* Rain Garden */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
               <label className="flex items-start gap-4 cursor-pointer">
                 <input
@@ -252,7 +256,7 @@ Natural daylight, high detail, professional photography style.`;
               </label>
             </div>
 
-            {/* 3. Hardscape */}
+            {/* Hardscape */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
               <label className="flex items-start gap-4 cursor-pointer">
                 <input
@@ -263,11 +267,10 @@ Natural daylight, high detail, professional photography style.`;
                 />
                 <div className="flex-1">
                   <div className="text-2xl font-semibold">Add hardscape</div>
-                  <p className="text-zinc-400 mt-1">Permeable walkway and/or patio</p>
+                  <p className="text-zinc-400 mt-1">Walkway and/or patio</p>
 
                   {hardscape && (
                     <div className="mt-6 space-y-6 pl-2 border-l-2 border-zinc-700">
-                      {/* Walkway or Walkway + Patio */}
                       <div>
                         <p className="text-sm text-zinc-400 mb-2">Choose layout</p>
                         <div className="flex gap-3">
@@ -275,18 +278,17 @@ Natural daylight, high detail, professional photography style.`;
                             onClick={() => setHardscapeType('walkway')}
                             className={`flex-1 py-3 rounded-2xl text-sm font-medium transition ${hardscapeType === 'walkway' ? 'bg-emerald-700 text-white' : 'bg-zinc-800 hover:bg-zinc-700'}`}
                           >
-                            Walkway only
+                            Walkway
                           </button>
                           <button
                             onClick={() => setHardscapeType('walkway-patio')}
                             className={`flex-1 py-3 rounded-2xl text-sm font-medium transition ${hardscapeType === 'walkway-patio' ? 'bg-emerald-700 text-white' : 'bg-zinc-800 hover:bg-zinc-700'}`}
                           >
-                            Walkway + Patio
+                            Walkway & Patio
                           </button>
                         </div>
                       </div>
 
-                      {/* Material */}
                       <div>
                         <p className="text-sm text-zinc-400 mb-2">Material</p>
                         <div className="flex gap-3">
@@ -294,7 +296,7 @@ Natural daylight, high detail, professional photography style.`;
                             onClick={() => setHardscapeMaterial('pavers')}
                             className={`flex-1 py-3 rounded-2xl text-sm font-medium transition ${hardscapeMaterial === 'pavers' ? 'bg-emerald-700 text-white' : 'bg-zinc-800 hover:bg-zinc-700'}`}
                           >
-                            Permeable Pavers
+                            Pavers
                           </button>
                           <button
                             onClick={() => setHardscapeMaterial('stone')}
@@ -310,7 +312,7 @@ Natural daylight, high detail, professional photography style.`;
               </label>
             </div>
 
-            {/* 4. Edible / Permaculture Guilds */}
+            {/* Edible / Permaculture Guilds - now multiple checkboxes */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
               <label className="flex items-start gap-4 cursor-pointer">
                 <input
@@ -324,22 +326,36 @@ Natural daylight, high detail, professional photography style.`;
                   <p className="text-zinc-400 mt-1">Integrate food-producing plants into the design</p>
 
                   {edibleGuild && (
-                    <div className="mt-6 pl-2 border-l-2 border-zinc-700">
-                      <p className="text-sm text-zinc-400 mb-2">Guild type</p>
-                      <div className="grid grid-cols-3 gap-3">
-                        {[
-                          { value: 'culinary', label: 'Culinary Herbs' },
-                          { value: 'medicinal', label: 'Medicinal Herbs' },
-                          { value: 'fruit', label: 'Fruit Trees & Berries' },
-                        ].map((g) => (
-                          <button
-                            key={g.value}
-                            onClick={() => setGuildType(g.value as any)}
-                            className={`py-3 rounded-2xl text-sm font-medium transition ${guildType === g.value ? 'bg-emerald-700 text-white' : 'bg-zinc-800 hover:bg-zinc-700'}`}
-                          >
-                            {g.label}
-                          </button>
-                        ))}
+                    <div className="mt-6 pl-2 border-l-2 border-zinc-700 space-y-4">
+                      <p className="text-sm text-zinc-400 mb-2">Select all that apply:</p>
+                      <div className="space-y-3">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={culinaryGuild}
+                            onChange={(e) => setCulinaryGuild(e.target.checked)}
+                            className="w-5 h-5 accent-emerald-600"
+                          />
+                          <span>Culinary Herbs & Vegetables</span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={medicinalGuild}
+                            onChange={(e) => setMedicinalGuild(e.target.checked)}
+                            className="w-5 h-5 accent-emerald-600"
+                          />
+                          <span>Medicinal Herbs</span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={fruitGuild}
+                            onChange={(e) => setFruitGuild(e.target.checked)}
+                            className="w-5 h-5 accent-emerald-600"
+                          />
+                          <span>Fruit Trees & Berries</span>
+                        </label>
                       </div>
                     </div>
                   )}
