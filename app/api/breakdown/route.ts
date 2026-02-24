@@ -17,11 +17,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing generated design image URL' }, { status: 400 });
     }
 
-    // Optional: require original photo for accurate sq ft estimate
-    // if (!originalImageBase64) {
-    //   return NextResponse.json({ error: 'Missing original yard photo for accurate estimate' }, { status: 400 });
-    // }
-
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       console.error('[breakdown] OPENAI_API_KEY not set');
@@ -30,9 +25,11 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = `You are a licensed landscape architect and contractor in Fort Collins, Colorado with 2026 pricing knowledge.
 
-Analyze TWO images:
-1. The ORIGINAL yard photo (if provided) – use this to estimate the actual grass/sod area to be removed (in square feet).
+Analyze TWO images if both are provided:
+1. The ORIGINAL yard photo – use this to estimate the actual grass/sod area to be removed (in square feet).
 2. The GENERATED xeriscape design image – this is the proposed final look.
+
+If only the generated image is provided, use 800–1,500 sq ft as a typical small-medium Fort Collins yard.
 
 Provide a realistic, detailed cost & installation breakdown in clean, well-structured Markdown format.
 Use the following REAL Fort Collins-area pricing (2026 estimates):
@@ -49,7 +46,7 @@ Use the following REAL Fort Collins-area pricing (2026 estimates):
 - Miscellaneous (soil amendments, edging, tools): 10–15% of total
 
 Rules:
-- First, estimate the grass/sod area from the ORIGINAL photo (if provided). If no original photo, use 800–1,500 sq ft as a typical small-medium Fort Collins yard.
+- First, estimate the grass/sod area from the ORIGINAL photo (if provided).
 - Base ALL costs on that sq ft number (e.g. sod removal = sq ft × $2).
 - Assume 80%+ native coverage if native planting is selected.
 - Rebate: Base $0.75/sq ft (max $750), + $0.25/sq ft native bonus (total max $1,000) if ≥80% natives and good coverage.
@@ -73,24 +70,24 @@ Table format with columns: Common Name (Scientific Name) | Quantity (approx.) | 
 
 Be encouraging, practical, and specific to Colorado natives from Fort Collins Nature in the City guidelines.`;
 
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: 'Analyze these images for a realistic Fort Collins xeriscape estimate:' },
-          { type: 'image_url', image_url: { url: imageUrl } },
-        ],
-      },
+    // Build messages array safely
+    const userContent: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = [
+      { type: 'text', text: 'Analyze these images for a realistic Fort Collins xeriscape estimate:' },
+      { type: 'image_url', image_url: { url: imageUrl } },
     ];
 
     // Add original photo if provided
     if (originalImageBase64) {
-      messages[1].content.push({
+      userContent.push({
         type: 'image_url',
         image_url: { url: `data:image/jpeg;base64,${originalImageBase64}` },
       });
     }
+
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userContent },
+    ];
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -99,7 +96,7 @@ Be encouraging, practical, and specific to Colorado natives from Fort Collins Na
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // cheap & good vision; change to 'gpt-4o' for best results
+        model: 'gpt-4o-mini',
         messages,
         temperature: 0.6,
         max_tokens: 2500,
