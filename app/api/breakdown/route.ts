@@ -10,12 +10,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid request body - not valid JSON' }, { status: 400 });
     }
 
-    const { imageUrl, tier } = body;
+    const { imageUrl, originalImageBase64, tier } = body;
 
     if (!imageUrl) {
-      console.error('[breakdown] Missing imageUrl');
-      return NextResponse.json({ error: 'Missing image URL' }, { status: 400 });
+      console.error('[breakdown] Missing imageUrl (generated design)');
+      return NextResponse.json({ error: 'Missing generated design image URL' }, { status: 400 });
     }
+
+    // Optional: require original photo for accurate sq ft estimate
+    // if (!originalImageBase64) {
+    //   return NextResponse.json({ error: 'Missing original yard photo for accurate estimate' }, { status: 400 });
+    // }
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -23,31 +28,69 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Server error: OpenAI API key missing' }, { status: 500 });
     }
 
-    const systemPrompt = `You are a licensed landscape architect and contractor in Fort Collins, Colorado (2026 pricing).
-Analyze this xeriscape design image for a homeowner qualifying for the City's Xeriscape Incentive Program.
+    const systemPrompt = `You are a licensed landscape architect and contractor in Fort Collins, Colorado with 2026 pricing knowledge.
 
-Provide a realistic, detailed breakdown in clean Markdown format.
+Analyze TWO images:
+1. The ORIGINAL yard photo (if provided) – use this to estimate the actual grass/sod area to be removed (in square feet).
+2. The GENERATED xeriscape design image – this is the proposed final look.
 
-Always include:
+Provide a realistic, detailed cost & installation breakdown in clean, well-structured Markdown format.
+Use the following REAL Fort Collins-area pricing (2026 estimates):
+
+- Sod cutter / grass removal: $2.00 per sq ft (labor + disposal)
+- Shredded cedar mulch: $35–$45 per cubic yard (installed 2–3" deep)
+- Native perennials/grasses (1-gallon): $8–$18 per plant
+- Shrubs (1–5 gallon): $20–$80 each
+- Small trees / fruit trees: $80–$250 each
+- Permeable pavers or natural stone walkway/patio: $12–$25 per sq ft installed
+- Rain garden / infiltration basin: $8–$15 per sq ft (plants + soil amendments)
+- Edible guild additions (herbs/veggies/fruit): $10–$40 per plant
+- Drip irrigation system: $1.50–$3 per sq ft
+- Miscellaneous (soil amendments, edging, tools): 10–15% of total
+
+Rules:
+- First, estimate the grass/sod area from the ORIGINAL photo (if provided). If no original photo, use 800–1,500 sq ft as a typical small-medium Fort Collins yard.
+- Base ALL costs on that sq ft number (e.g. sod removal = sq ft × $2).
+- Assume 80%+ native coverage if native planting is selected.
+- Rebate: Base $0.75/sq ft (max $750), + $0.25/sq ft native bonus (total max $1,000) if ≥80% natives and good coverage.
+- Installation: 4–10 weeks total, phased, focus on sod removal first, then mulch, then planting.
+- Output ONLY clean Markdown – no extra commentary outside the structure.
+
+Always include exactly these sections:
+
 ## Project Summary
-- Tier: ${tier || 'Unknown'}
+- Estimated grass/sod area removed: X sq ft (from photo or assumed)
+- Tier / Style: ${tier || 'Custom Landscape'}
 - Estimated total installed cost: $X,XXX – $X,XXX
 - Expected City rebate (XIP): $XXX – $1,000
 - Rebate eligibility notes
 
 ## Phased Installation Strategy
-Focus heavily on removing existing grass with a sod cutter, then mulching with shredded cedar wood chip mulch (not rock) for weed suppression and moisture retention. 4-8 weeks total.
-
-1. Phase name – duration – estimated cost – description
+1. Phase name – Duration – Estimated Cost – Description
 
 ## Plant List Recommendation
-Heavy on Colorado natives from the official Fort Collins Nature in the City Design Guide. List 8-12 plants with:
-- Common name (scientific name)
-- Quantity (approx.)
-- Purpose/role
-- Approx. cost per plant
+Table format with columns: Common Name (Scientific Name) | Quantity (approx.) | Purpose/Role | Approx. Cost per Plant
 
-Be encouraging and practical.`;
+Be encouraging, practical, and specific to Colorado natives from Fort Collins Nature in the City guidelines.`;
+
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Analyze these images for a realistic Fort Collins xeriscape estimate:' },
+          { type: 'image_url', image_url: { url: imageUrl } },
+        ],
+      },
+    ];
+
+    // Add original photo if provided
+    if (originalImageBase64) {
+      messages[1].content.push({
+        type: 'image_url',
+        image_url: { url: `data:image/jpeg;base64,${originalImageBase64}` },
+      });
+    }
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -56,19 +99,10 @@ Be encouraging and practical.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',  // cheap & good vision, or use 'gpt-4o' for best quality
-        messages: [
-          { role: 'system', content: systemPrompt },
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: 'Analyze this landscape design image:' },
-              { type: 'image_url', image_url: { url: imageUrl } },
-            ],
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
+        model: 'gpt-4o-mini', // cheap & good vision; change to 'gpt-4o' for best results
+        messages,
+        temperature: 0.6,
+        max_tokens: 2500,
       }),
     });
 
@@ -83,7 +117,6 @@ Be encouraging and practical.`;
 
     const data = await res.json();
     const content = data.choices?.[0]?.message?.content;
-
     if (!content) {
       return NextResponse.json({ error: 'OpenAI returned empty response' }, { status: 500 });
     }
