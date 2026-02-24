@@ -4,6 +4,94 @@ import { Upload, X, Check, Award } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+// Small thumbnail images (public domain / CC0 from Wikimedia / USDA / etc.)
+const plantImages: Record<string, string> = {
+  'Purple Coneflower': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Echinacea_purpurea_003.JPG/320px-Echinacea_purpurea_003.JPG',
+  'Echinacea purpurea': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Echinacea_purpurea_003.JPG/320px-Echinacea_purpurea_003.JPG',
+  'Blue Grama': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Bouteloua_gracilis_001.jpg/320px-Bouteloua_gracilis_001.jpg',
+  'Lavender': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Lavandula_angustifolia_003.jpg/320px-Lavandula_angustifolia_003.jpg',
+  'Lavandula angustifolia': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Lavandula_angustifolia_003.jpg/320px-Lavandula_angustifolia_003.jpg',
+  'Rocky Mountain Penstemon': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Penstemon_strictus_1.jpg/320px-Penstemon_strictus_1.jpg',
+  'Penstemon strictus': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Penstemon_strictus_1.jpg/320px-Penstemon_strictus_1.jpg',
+  'Prairie Dropseed': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Sporobolus_heterolepis_001.jpg/320px-Sporobolus_heterolepis_001.jpg',
+  'Sporobolus heterolepis': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Sporobolus_heterolepis_001.jpg/320px-Sporobolus_heterolepis_001.jpg',
+  'Yucca': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/Yucca_glauca_001.jpg/320px-Yucca_glauca_001.jpg',
+  'Bee Balm': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Monarda_fistulosa_001.jpg/320px-Monarda_fistulosa_001.jpg',
+  'Monarda fistulosa': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Monarda_fistulosa_001.jpg/320px-Monarda_fistulosa_001.jpg',
+  'Catmint': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Nepeta_x_faassenii_001.jpg/320px-Nepeta_x_faassenii_001.jpg',
+  'Nepeta faassenii': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Nepeta_x_faassenii_001.jpg/320px-Nepeta_x_faassenii_001.jpg',
+  'Russian Sage': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Perovskia_atriplicifolia_001.jpg/320px-Perovskia_atriplicifolia_001.jpg',
+  'Perovskia atriplicifolia': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Perovskia_atriplicifolia_001.jpg/320px-Perovskia_atriplicifolia_001.jpg',
+  // Add more as you see common plants in breakdowns
+};
+
+function PlantTable({ markdown }: { markdown: string }) {
+  // Simple regex to find the plant table section
+  const tableMatch = markdown.match(/\|.*?\|[\s\S]*?(?=\n##|\n\n|$)/);
+  if (!tableMatch) {
+    return <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>;
+  }
+
+  const tableText = tableMatch[0];
+  const lines = tableText.split('\n').filter(line => line.trim());
+
+  // Skip header and separator rows, start from data
+  const dataRows = lines.slice(2); // skip | Common Name ... | and |---|---|
+
+  return (
+    <div className="overflow-x-auto mt-4">
+      <table className="min-w-full border-collapse border border-zinc-700 text-left">
+        <thead className="bg-zinc-800">
+          <tr>
+            <th className="border border-zinc-700 p-3 text-emerald-300">Plant Image</th>
+            <th className="border border-zinc-700 p-3 text-emerald-300">Common Name (Scientific Name)</th>
+            <th className="border border-zinc-700 p-3 text-emerald-300">Quantity (approx.)</th>
+            <th className="border border-zinc-700 p-3 text-emerald-300">Purpose/Role</th>
+            <th className="border border-zinc-700 p-3 text-emerald-300">Approx. Cost per Plant</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dataRows.map((row, index) => {
+            const cells = row.split('|').map(cell => cell.trim()).filter(Boolean);
+            if (cells.length < 4) return null;
+
+            const plantName = cells[0]?.replace(/\s*\(.*?\)/, '').trim() || '';
+            const scientific = cells[0]?.match(/\((.*?)\)/)?.[1] || '';
+            const quantity = cells[1] || '';
+            const purpose = cells[2] || '';
+            const cost = cells[3] || '';
+
+            const imageUrl = plantImages[plantName] || plantImages[scientific] || null;
+
+            return (
+              <tr key={index} className="border-t border-zinc-800 hover:bg-zinc-900/50">
+                <td className="border border-zinc-700 p-3 text-center">
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={plantName}
+                      className="w-16 h-16 object-cover rounded-md mx-auto"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div className="w-16 h-16 bg-zinc-800 rounded-md mx-auto flex items-center justify-center text-xs text-zinc-500">
+                      No image
+                    </div>
+                  )}
+                </td>
+                <td className="border border-zinc-700 p-3">{plantName}<br /><em className="text-zinc-500 text-sm">{scientific}</em></td>
+                <td className="border border-zinc-700 p-3">{quantity}</td>
+                <td className="border border-zinc-700 p-3">{purpose}</td>
+                <td className="border border-zinc-700 p-3">{cost}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function LandscapeTool() {
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
@@ -128,7 +216,6 @@ Natural daylight, high detail, professional photography style.`;
     setBreakdownError('');
 
     try {
-      // Convert original file to base64 if it exists
       let originalBase64 = null;
       if (referenceFile) {
         originalBase64 = await fileToBase64(referenceFile);
@@ -138,8 +225,8 @@ Natural daylight, high detail, professional photography style.`;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageUrl: design.url,              // generated design
-          originalImageBase64,               // original yard photo for sq ft estimate
+          imageUrl: design.url,
+          originalImageBase64,
           tier: 'Custom Landscape',
         }),
       });
@@ -224,13 +311,11 @@ Natural daylight, high detail, professional photography style.`;
           </div>
         </div>
 
-        {/* CUSTOMIZE FEATURES SECTION */}
+        {/* Customize Features */}
         <div className="mb-12">
           <h2 className="text-3xl font-semibold text-center mb-8">Customize Your Landscape</h2>
-          
           <div className="space-y-8">
-
-            {/* Native Planting + Rebate Sticker */}
+            {/* Native Planting */}
             <div className="bg-zinc-900 border border-emerald-700 rounded-3xl p-8 relative">
               <div className="absolute -top-3 -right-3 bg-emerald-600 text-white text-xs font-bold px-4 py-1 rounded-full flex items-center gap-1">
                 <Award size={16} /> UP TO $1,000 REBATE AVAILABLE
@@ -321,7 +406,7 @@ Natural daylight, high detail, professional photography style.`;
               </label>
             </div>
 
-            {/* Edible / Permaculture Guilds */}
+            {/* Edible Guild */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
               <label className="flex items-start gap-4 cursor-pointer">
                 <input
@@ -413,8 +498,33 @@ Natural daylight, high detail, professional photography style.`;
                 )}
 
                 {breakdown && !breakdownError && (
-                  <div className="prose prose-invert max-w-none text-lg leading-relaxed border-t border-zinc-800 pt-6 prose-headings:text-emerald-400 prose-strong:text-white prose-table:border-zinc-700 prose-td:p-3 prose-th:p-3 prose-th:bg-zinc-800 prose-th:text-emerald-300 prose-tr:border-zinc-800 prose-tr:hover:bg-zinc-900/50">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{breakdown}</ReactMarkdown>
+                  <div className="border-t border-zinc-800 pt-6">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        table: ({ children }) => (
+                          <div className="overflow-x-auto mt-4">
+                            <table className="min-w-full border-collapse border border-zinc-700 text-left">
+                              {children}
+                            </table>
+                          </div>
+                        ),
+                        thead: ({ children }) => (
+                          <thead className="bg-zinc-800">{children}</thead>
+                        ),
+                        th: ({ children }) => (
+                          <th className="border border-zinc-700 p-3 text-emerald-300">{children}</th>
+                        ),
+                        tr: ({ children }) => (
+                          <tr className="border-t border-zinc-800 hover:bg-zinc-900/50">{children}</tr>
+                        ),
+                        td: ({ children }) => (
+                          <td className="border border-zinc-700 p-3">{children}</td>
+                        ),
+                      }}
+                    >
+                      {breakdown}
+                    </ReactMarkdown>
                   </div>
                 )}
 
