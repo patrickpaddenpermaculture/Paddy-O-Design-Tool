@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { Upload, X, Check, Award } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 export default function LandscapeTool() {
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
@@ -312,7 +313,7 @@ Natural daylight, high detail, professional photography style.`;
               </label>
             </div>
 
-            {/* Edible / Permaculture Guilds - now multiple checkboxes */}
+            {/* Edible / Permaculture Guilds - multiple checkboxes */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
               <label className="flex items-start gap-4 cursor-pointer">
                 <input
@@ -404,8 +405,8 @@ Natural daylight, high detail, professional photography style.`;
                 )}
 
                 {breakdown && !breakdownError && (
-                  <div className="prose prose-invert max-w-none text-lg leading-relaxed whitespace-pre-wrap border-t border-zinc-800 pt-6">
-                    {breakdown}
+                  <div className="prose prose-invert max-w-none text-lg leading-relaxed border-t border-zinc-800 pt-6">
+                    <ReactMarkdown>{breakdown}</ReactMarkdown>
                   </div>
                 )}
 
