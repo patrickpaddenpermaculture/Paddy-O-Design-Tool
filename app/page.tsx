@@ -59,9 +59,9 @@ export default function LandscapeTool() {
     }
     if (hardscape) {
       const hs = hardscapeType === 'walkway-patio'
-        ? 'permeable walkway AND patio'
-        : 'permeable walkway';
-      const mat = hardscapeMaterial === 'stone' ? 'natural stone' : 'permeable pavers';
+        ? 'walkway AND patio'
+        : 'walkway';
+      const mat = hardscapeMaterial === 'stone' ? 'natural stone' : 'pavers';
       features.push(`${hs} made of ${mat}`);
     }
     if (edibleGuild) {
