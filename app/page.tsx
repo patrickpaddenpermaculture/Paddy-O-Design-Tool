@@ -122,16 +122,24 @@ Natural daylight, high detail, professional photography style.`;
       alert('No design image generated yet. Please generate a design first.');
       return;
     }
+
     setBreakdownLoading(true);
     setBreakdown('');
     setBreakdownError('');
 
     try {
+      // Convert original file to base64 if it exists
+      let originalBase64 = null;
+      if (referenceFile) {
+        originalBase64 = await fileToBase64(referenceFile);
+      }
+
       const res = await fetch('/api/breakdown', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageUrl: design.url,
+          imageUrl: design.url,              // generated design
+          originalImageBase64,               // original yard photo for sq ft estimate
           tier: 'Custom Landscape',
         }),
       });
@@ -157,7 +165,7 @@ Natural daylight, high detail, professional photography style.`;
       console.error('Breakdown error:', err);
       setBreakdownError(
         err.message.includes('Model not found') || err.message.includes('invalid argument')
-          ? 'Vision analysis is temporarily unavailable. Try again later or check xAI status.'
+          ? 'Vision analysis is temporarily unavailable. Try again later or check OpenAI status.'
           : 'Failed to generate breakdown: ' + (err.message || 'Unknown error')
       );
     } finally {
@@ -221,6 +229,7 @@ Natural daylight, high detail, professional photography style.`;
           <h2 className="text-3xl font-semibold text-center mb-8">Customize Your Landscape</h2>
           
           <div className="space-y-8">
+
             {/* Native Planting + Rebate Sticker */}
             <div className="bg-zinc-900 border border-emerald-700 rounded-3xl p-8 relative">
               <div className="absolute -top-3 -right-3 bg-emerald-600 text-white text-xs font-bold px-4 py-1 rounded-full flex items-center gap-1">
@@ -312,7 +321,7 @@ Natural daylight, high detail, professional photography style.`;
               </label>
             </div>
 
-            {/* Edible Guilds */}
+            {/* Edible / Permaculture Guilds */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
               <label className="flex items-start gap-4 cursor-pointer">
                 <input
