@@ -1,45 +1,28 @@
 'use client';
 import React, { useState } from 'react';
-import { Upload, X, Check } from 'lucide-react';
-
-const tiers = [
-  {
-    id: 'base',
-    name: 'Standard Xeriscape',
-    emoji: '🌿',
-    rebate: 'Up to $750',
-    cost: '$3,000 – $8,000 (est.)',
-    desc: 'Plants, mulch, minimal hardscape — qualifies for base rebate',
-    prompt:
-      'xeriscape with Colorado-friendly plants, rock/gravel mulch, no turf, drip irrigation, functional and low-maintenance, moderate plant density',
-  },
-  {
-    id: 'native',
-    name: 'Native Plant Bonus',
-    emoji: '🌸',
-    rebate: 'Up to $1,000',
-    cost: '$4,000 – $12,000 (est.)',
-    desc: 'Heavy use of Colorado natives (80%+) for extra rebate bonus',
-    prompt:
-      'xeriscape featuring at least 80% Colorado native perennials, grasses, shrubs; layered planting, rock mulch, permeable paths, no grass, high ecological value and beauty',
-  },
-];
+import { Upload, X, Check, Award } from 'lucide-react';
 
 export default function LandscapeTool() {
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
-  const [selectedTier, setSelectedTier] = useState(tiers[0]); // default to Standard/Base
   const [loading, setLoading] = useState(false);
   const [design, setDesign] = useState<{ url: string; promptUsed: string } | null>(null);
   const [breakdown, setBreakdown] = useState('');
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
 
+  // === NEW CUSTOMIZATION STATE ===
+  const [nativePlanting, setNativePlanting] = useState(true);           // default on — most important for rebate
+  const [rainGarden, setRainGarden] = useState(false);
+  const [hardscape, setHardscape] = useState(false);
+  const [hardscapeType, setHardscapeType] = useState<'walkway' | 'walkway-patio'>('walkway');
+  const [hardscapeMaterial, setHardscapeMaterial] = useState<'stone' | 'pavers'>('pavers');
+  const [edibleGuild, setEdibleGuild] = useState(false);
+  const [guildType, setGuildType] = useState<'culinary' | 'medicinal' | 'fruit'>('culinary');
+
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Basic validation
     if (!file.type.startsWith('image/')) {
       alert('Please upload an image file (JPEG, PNG, etc.)');
       return;
@@ -48,7 +31,6 @@ export default function LandscapeTool() {
       alert('File too large — maximum 5MB');
       return;
     }
-
     setReferenceFile(file);
     const reader = new FileReader();
     reader.onload = (ev) => setReferencePreview(ev.target?.result as string);
@@ -65,10 +47,37 @@ export default function LandscapeTool() {
     setDesign(null);
     setBreakdown('');
     setBreakdownError('');
-    setBreakdownLoading(false);
 
-    const tierPrompt = selectedTier.prompt;
-    const finalPrompt = `Photorealistic landscape design for a real Fort Collins, Colorado yard using this exact style: ${tierPrompt}.
+    // Build the feature list for the prompt
+    let features: string[] = [];
+
+    if (nativePlanting) {
+      features.push('grass completely removed and replaced with low-water Colorado native perennials, grasses, and shrubs (80%+ native coverage)');
+    }
+    if (rainGarden) {
+      features.push('downspout routed into a beautiful infiltration basin / rain garden with native wetland plants');
+    }
+    if (hardscape) {
+      const hs = hardscapeType === 'walkway-patio'
+        ? 'permeable walkway AND patio'
+        : 'permeable walkway';
+      const mat = hardscapeMaterial === 'stone' ? 'natural stone' : 'permeable pavers';
+      features.push(`${hs} made of ${mat}`);
+    }
+    if (edibleGuild) {
+      const guildDesc = 
+        guildType === 'culinary' ? 'culinary herb and vegetable guild' :
+        guildType === 'medicinal' ? 'medicinal herb guild' :
+        'fruit tree and berry bush guild';
+      features.push(guildDesc);
+    }
+
+    const featureString = features.length 
+      ? `Include these specific features: ${features.join(', ')}. ` 
+      : '';
+
+    const finalPrompt = `Photorealistic landscape design for a real Fort Collins, Colorado yard.
+${featureString}
 ONLY modify the yard/grass/plants/soil/landscape features.
 DO NOT change house, roof, windows, garage, driveway, sidewalks, fences, or any architecture.
 Natural daylight, high detail, professional photography style.`;
@@ -108,7 +117,6 @@ Natural daylight, high detail, professional photography style.`;
       alert('No design image generated yet. Please generate a design first.');
       return;
     }
-
     setBreakdownLoading(true);
     setBreakdown('');
     setBreakdownError('');
@@ -119,7 +127,7 @@ Natural daylight, high detail, professional photography style.`;
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageUrl: design.url,
-          tier: selectedTier.name,
+          tier: 'Custom Landscape',
         }),
       });
 
@@ -167,7 +175,7 @@ Natural daylight, high detail, professional photography style.`;
           Fort Collins Landscape Design Tool
         </h1>
         <p className="text-center text-xl text-zinc-400 mb-12">
-          Visualize your xeriscape conversion and see potential rebate eligibility
+          Build your perfect xeriscape — see what your yard could look like and qualify for up to $1,000 rebate
         </p>
 
         {/* Upload Section */}
@@ -191,9 +199,7 @@ Natural daylight, high detail, professional photography style.`;
             ) : (
               <label className="cursor-pointer block">
                 <Upload className="w-16 h-16 mx-auto text-zinc-500 mb-4" />
-                <span className="text-xl text-zinc-300">
-                  Click or drag a photo of your yard
-                </span>
+                <span className="text-xl text-zinc-300">Click or drag a photo of your yard</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -205,47 +211,142 @@ Natural daylight, high detail, professional photography style.`;
           </div>
         </div>
 
-        {/* Tier Selection */}
+        {/* === CUSTOMIZE FEATURES SECTION === */}
         <div className="mb-12">
-          <h2 className="text-2xl font-semibold mb-6 text-center">
-            Choose your project style
-          </h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            {tiers.map((tier) => (
-              <button
-                key={tier.id}
-                onClick={() => setSelectedTier(tier)}
-                className={`bg-zinc-900 border-2 rounded-3xl p-8 text-left transition-all hover:scale-105 ${
-                  selectedTier.id === tier.id
-                    ? 'border-emerald-600 bg-emerald-950/30'
-                    : 'border-zinc-800 hover:border-zinc-700'
-                }`}
-              >
-                <div className="text-5xl mb-4">{tier.emoji}</div>
-                <div className="text-2xl font-bold mb-1">{tier.name}</div>
-                <div className="text-emerald-400 font-semibold text-lg">{tier.rebate}</div>
-                <div className="text-sm text-zinc-400 mt-1">{tier.cost}</div>
-                <p className="mt-4 text-zinc-300 text-sm">{tier.desc}</p>
-                {selectedTier.id === tier.id && (
-                  <Check className="mt-6 text-emerald-500" size={32} />
-                )}
-              </button>
-            ))}
-          </div>
+          <h2 className="text-3xl font-semibold text-center mb-8">Customize Your Landscape</h2>
+          
+          <div className="space-y-8">
 
-          <p className="text-center text-sm text-zinc-500 mt-8">
-            Rebates from Fort Collins Utilities XIP: $0.75 per sq ft base (max $750), plus
-            $0.25 per sq ft native plant bonus (total max $1,000). Pre-approval required
-            before installation.{' '}
-            <a
-              href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-emerald-500 hover:underline"
-            >
-              View official program details →
-            </a>
-          </p>
+            {/* 1. Native Planting + Rebate Sticker */}
+            <div className="bg-zinc-900 border border-emerald-700 rounded-3xl p-8 relative">
+              <div className="absolute -top-3 -right-3 bg-emerald-600 text-white text-xs font-bold px-4 py-1 rounded-full flex items-center gap-1">
+                <Award size={16} /> UP TO $1,000 REBATE AVAILABLE
+              </div>
+              <label className="flex items-start gap-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={nativePlanting}
+                  onChange={(e) => setNativePlanting(e.target.checked)}
+                  className="mt-1 w-6 h-6 accent-emerald-600"
+                />
+                <div>
+                  <div className="text-2xl font-semibold">Replace grass with low-water Colorado natives</div>
+                  <p className="text-zinc-400 mt-1">Remove all turf and plant native perennials, grasses & shrubs — qualifies for maximum rebate</p>
+                </div>
+              </label>
+            </div>
+
+            {/* 2. Rain Garden */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
+              <label className="flex items-start gap-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rainGarden}
+                  onChange={(e) => setRainGarden(e.target.checked)}
+                  className="mt-1 w-6 h-6 accent-emerald-600"
+                />
+                <div>
+                  <div className="text-2xl font-semibold">Add rain garden + downspout integration</div>
+                  <p className="text-zinc-400 mt-1">Route roof runoff into a beautiful infiltration basin / rain garden with native wetland plants</p>
+                </div>
+              </label>
+            </div>
+
+            {/* 3. Hardscape */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
+              <label className="flex items-start gap-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hardscape}
+                  onChange={(e) => setHardscape(e.target.checked)}
+                  className="mt-1 w-6 h-6 accent-emerald-600"
+                />
+                <div className="flex-1">
+                  <div className="text-2xl font-semibold">Add hardscape</div>
+                  <p className="text-zinc-400 mt-1">Permeable walkway and/or patio</p>
+
+                  {hardscape && (
+                    <div className="mt-6 space-y-6 pl-2 border-l-2 border-zinc-700">
+                      {/* Walkway or Walkway + Patio */}
+                      <div>
+                        <p className="text-sm text-zinc-400 mb-2">Choose layout</p>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setHardscapeType('walkway')}
+                            className={`flex-1 py-3 rounded-2xl text-sm font-medium transition ${hardscapeType === 'walkway' ? 'bg-emerald-700 text-white' : 'bg-zinc-800 hover:bg-zinc-700'}`}
+                          >
+                            Walkway only
+                          </button>
+                          <button
+                            onClick={() => setHardscapeType('walkway-patio')}
+                            className={`flex-1 py-3 rounded-2xl text-sm font-medium transition ${hardscapeType === 'walkway-patio' ? 'bg-emerald-700 text-white' : 'bg-zinc-800 hover:bg-zinc-700'}`}
+                          >
+                            Walkway + Patio
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Material */}
+                      <div>
+                        <p className="text-sm text-zinc-400 mb-2">Material</p>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setHardscapeMaterial('pavers')}
+                            className={`flex-1 py-3 rounded-2xl text-sm font-medium transition ${hardscapeMaterial === 'pavers' ? 'bg-emerald-700 text-white' : 'bg-zinc-800 hover:bg-zinc-700'}`}
+                          >
+                            Permeable Pavers
+                          </button>
+                          <button
+                            onClick={() => setHardscapeMaterial('stone')}
+                            className={`flex-1 py-3 rounded-2xl text-sm font-medium transition ${hardscapeMaterial === 'stone' ? 'bg-emerald-700 text-white' : 'bg-zinc-800 hover:bg-zinc-700'}`}
+                          >
+                            Natural Stone
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
+
+            {/* 4. Edible / Permaculture Guilds */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
+              <label className="flex items-start gap-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={edibleGuild}
+                  onChange={(e) => setEdibleGuild(e.target.checked)}
+                  className="mt-1 w-6 h-6 accent-emerald-600"
+                />
+                <div className="flex-1">
+                  <div className="text-2xl font-semibold">Add edible / permaculture guild</div>
+                  <p className="text-zinc-400 mt-1">Integrate food-producing plants into the design</p>
+
+                  {edibleGuild && (
+                    <div className="mt-6 pl-2 border-l-2 border-zinc-700">
+                      <p className="text-sm text-zinc-400 mb-2">Guild type</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { value: 'culinary', label: 'Culinary Herbs' },
+                          { value: 'medicinal', label: 'Medicinal Herbs' },
+                          { value: 'fruit', label: 'Fruit Trees & Berries' },
+                        ].map((g) => (
+                          <button
+                            key={g.value}
+                            onClick={() => setGuildType(g.value as any)}
+                            className={`py-3 rounded-2xl text-sm font-medium transition ${guildType === g.value ? 'bg-emerald-700 text-white' : 'bg-zinc-800 hover:bg-zinc-700'}`}
+                          >
+                            {g.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
+          </div>
         </div>
 
         {/* Generate Button */}
@@ -255,21 +356,19 @@ Natural daylight, high detail, professional photography style.`;
             disabled={loading}
             className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white text-2xl font-semibold px-16 py-6 rounded-3xl transition shadow-xl"
           >
-            {loading ? 'Generating your design...' : `Generate ${selectedTier.name} Design`}
+            {loading ? 'Generating your custom design...' : 'Generate My Landscape Design'}
           </button>
         </div>
 
         {/* Result Section */}
         {design && (
           <div className="mt-12">
-            <h2 className="text-3xl font-semibold text-center mb-8">
-              Your {selectedTier.name} Design
-            </h2>
+            <h2 className="text-3xl font-semibold text-center mb-8">Your Custom Design</h2>
             <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto">
               <img
                 src={design.url}
                 className="w-full h-96 object-cover"
-                alt={`Generated ${selectedTier.name} xeriscape design for your Fort Collins yard`}
+                alt="Generated custom xeriscape design for your Fort Collins yard"
               />
               <div className="p-8 space-y-6">
                 <button
@@ -296,10 +395,8 @@ Natural daylight, high detail, professional photography style.`;
 
                 {breakdownLoading && !breakdown && !breakdownError && (
                   <div className="text-center py-8 text-zinc-400 italic">
-                    Analyzing your design...
-                    <br />
-                    Creating estimate with sod cutter for grass removal + shredded cedar
-                    mulch, plus native plant recommendations...
+                    Analyzing your design...<br />
+                    Creating detailed estimate and plant list...
                   </div>
                 )}
               </div>
@@ -327,10 +424,7 @@ Natural daylight, high detail, professional photography style.`;
 
         {/* Footer */}
         <div className="mt-20 text-center text-sm text-zinc-500 space-y-2">
-          <p>
-            Recommended installer:{' '}
-            <strong>Padden Permaculture</strong> (and other City-approved contractors)
-          </p>
+          <p>Recommended installer: <strong>Padden Permaculture</strong> (and other City-approved contractors)</p>
         </div>
       </div>
     </div>
