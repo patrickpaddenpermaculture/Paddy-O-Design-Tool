@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Upload, X, Check, Award } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export default function LandscapeTool() {
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
@@ -51,7 +52,6 @@ export default function LandscapeTool() {
     setBreakdown('');
     setBreakdownError('');
 
-    // Build the feature list for the prompt
     let features: string[] = [];
 
     if (nativePlanting) {
@@ -221,7 +221,6 @@ Natural daylight, high detail, professional photography style.`;
           <h2 className="text-3xl font-semibold text-center mb-8">Customize Your Landscape</h2>
           
           <div className="space-y-8">
-
             {/* Native Planting + Rebate Sticker */}
             <div className="bg-zinc-900 border border-emerald-700 rounded-3xl p-8 relative">
               <div className="absolute -top-3 -right-3 bg-emerald-600 text-white text-xs font-bold px-4 py-1 rounded-full flex items-center gap-1">
@@ -313,7 +312,7 @@ Natural daylight, high detail, professional photography style.`;
               </label>
             </div>
 
-            {/* Edible / Permaculture Guilds - multiple checkboxes */}
+            {/* Edible Guilds */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
               <label className="flex items-start gap-4 cursor-pointer">
                 <input
@@ -405,8 +404,8 @@ Natural daylight, high detail, professional photography style.`;
                 )}
 
                 {breakdown && !breakdownError && (
-                  <div className="prose prose-invert max-w-none text-lg leading-relaxed border-t border-zinc-800 pt-6">
-                    <ReactMarkdown>{breakdown}</ReactMarkdown>
+                  <div className="prose prose-invert max-w-none text-lg leading-relaxed border-t border-zinc-800 pt-6 prose-headings:text-emerald-400 prose-strong:text-white prose-table:border-zinc-700 prose-td:p-3 prose-th:p-3 prose-th:bg-zinc-800 prose-th:text-emerald-300 prose-tr:border-zinc-800 prose-tr:hover:bg-zinc-900/50">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{breakdown}</ReactMarkdown>
                   </div>
                 )}
 
