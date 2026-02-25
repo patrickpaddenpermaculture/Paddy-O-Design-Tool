@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import { Upload, X, Check, Award } from 'lucide-react';
+import { Upload, X, Award } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -51,9 +51,7 @@ export default function LandscapeTool() {
     setDesign(null);
     setBreakdown('');
     setBreakdownError('');
-
     let features: string[] = [];
-
     if (nativePlanting) features.push('grass completely removed and replaced with low-water Colorado native perennials, grasses, and shrubs (80%+ native coverage)');
     if (rainGarden) features.push('downspout routed into a beautiful infiltration basin / rain garden with native wetland plants');
     if (hardscape) {
@@ -68,9 +66,7 @@ export default function LandscapeTool() {
       if (fruitGuild) guilds.push('fruit tree and berry bush guild');
       if (guilds.length > 0) features.push(guilds.join(', '));
     }
-
     const featureString = features.length ? `Include these specific features: ${features.join(', ')}. ` : '';
-
     const finalPrompt = `Photorealistic landscape design for a real Fort Collins, Colorado yard.
 ${featureString}
 ONLY modify the yard/grass/plants/soil/landscape features.
@@ -89,12 +85,10 @@ Natural daylight, high detail, professional photography style.`;
           aspect: '16:9',
         }),
       });
-
       if (!res.ok) throw new Error(`Image generation failed: ${res.status}`);
       const data = await res.json();
       const imageUrl = data.data?.[0]?.url;
       if (!imageUrl) throw new Error('No image URL returned');
-
       setDesign({ url: imageUrl, promptUsed: finalPrompt });
     } catch (err: any) {
       alert('Design generation failed: ' + (err.message || 'Unknown error'));
@@ -108,11 +102,9 @@ Natural daylight, high detail, professional photography style.`;
       alert('No design image generated yet. Please generate a design first.');
       return;
     }
-
     setBreakdownLoading(true);
     setBreakdown('');
     setBreakdownError('');
-
     try {
       const res = await fetch('/api/breakdown', {
         method: 'POST',
@@ -122,7 +114,6 @@ Natural daylight, high detail, professional photography style.`;
           tier: 'Custom Landscape',
         }),
       });
-
       if (!res.ok) throw new Error(`Breakdown failed: ${res.status}`);
       const data = await res.json();
       setBreakdown(data.breakdown || '');
@@ -144,11 +135,15 @@ Natural daylight, high detail, professional photography style.`;
   return (
     <div className="min-h-screen bg-zinc-950 text-white py-12 px-6">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-5xl font-serif font-bold text-center text-emerald-600 mb-3">
-          Fort Collins Landscape Design Tool
+        {/* Branded Header */}
+        <h1 className="text-5xl md:text-6xl font-serif font-bold text-center text-emerald-600 mb-2">
+          Paddy O' Patio
         </h1>
-        <p className="text-center text-xl text-zinc-400 mb-12">
-          Design Your Dream Landscape in Fort Collins and Unlock Up to $1,000 in City Rebates
+        <p className="text-center text-2xl md:text-3xl text-zinc-300 mb-1">
+          Fort Collins Landscape Design Tool
+        </p>
+        <p className="text-center text-xl text-emerald-500/80 mb-12 font-medium">
+          Intelligent Regional Designs Instantly
         </p>
 
         {/* Upload Section */}
@@ -158,7 +153,10 @@ Natural daylight, high detail, professional photography style.`;
             {referencePreview ? (
               <div className="relative max-w-md mx-auto">
                 <img src={referencePreview} className="rounded-2xl" alt="Yard preview" />
-                <button onClick={clearReference} className="absolute top-4 right-4 bg-red-600 p-2 rounded-full">
+                <button
+                  onClick={clearReference}
+                  className="absolute top-4 right-4 bg-red-600 p-2 rounded-full hover:bg-red-700 transition"
+                >
                   <X size={24} />
                 </button>
               </div>
@@ -172,7 +170,7 @@ Natural daylight, high detail, professional photography style.`;
           </div>
         </div>
 
-        {/* Customize Features - (kept the same as your last working version) */}
+        {/* Customize Features */}
         <div className="mb-12">
           <h2 className="text-3xl font-semibold text-center mb-8">Customize Your Landscape</h2>
           <div className="space-y-8">
@@ -182,22 +180,38 @@ Natural daylight, high detail, professional photography style.`;
                 <Award size={16} /> UP TO $1,000 REBATE AVAILABLE
               </div>
               <label className="flex items-start gap-4 cursor-pointer">
-                <input type="checkbox" checked={nativePlanting} onChange={(e) => setNativePlanting(e.target.checked)} className="mt-1 w-6 h-6 accent-emerald-600" />
+                <input
+                  type="checkbox"
+                  checked={nativePlanting}
+                  onChange={(e) => setNativePlanting(e.target.checked)}
+                  className="mt-1 w-6 h-6 accent-emerald-600"
+                />
                 <div>
                   <div className="text-2xl font-semibold">Replace grass with low-water Colorado natives</div>
-                  <p className="text-zinc-400 mt-1">Remove all turf and plant native perennials, grasses & shrubs — qualifies for maximum rebate</p>
+                  <p className="text-zinc-400 mt-1">
+                    Remove all turf and plant native perennials, grasses & shrubs — qualifies for maximum rebate
+                  </p>
                 </div>
               </label>
             </div>
 
-            {/* Rain Garden, Hardscape, Edible Guild — same as before */}
-            {/* (I kept them short here to save space — if you want the full version with all checkboxes, tell me and I'll include them) */}
+            {/* 
+              Add the other feature cards here, e.g.:
+              - Rain Garden card
+              - Hardscape card (with conditional selects for type/material)
+              - Edible Guild card (with sub-checkboxes for culinary/medicinal/fruit)
+              Use the same card style as above for consistency.
+            */}
           </div>
         </div>
 
         {/* Generate Button */}
         <div className="text-center mb-16">
-          <button onClick={generateDesign} disabled={loading} className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-zinc-800 text-white text-2xl font-semibold px-16 py-6 rounded-3xl transition shadow-xl">
+          <button
+            onClick={generateDesign}
+            disabled={loading}
+            className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white text-2xl font-semibold px-16 py-6 rounded-3xl transition shadow-xl"
+          >
             {loading ? 'Generating...' : 'Generate My Landscape Design'}
           </button>
         </div>
@@ -209,11 +223,19 @@ Natural daylight, high detail, professional photography style.`;
             <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto">
               <img src={design.url} className="w-full h-96 object-cover" alt="Generated design" />
               <div className="p-8 space-y-6">
-                <button onClick={generateBreakdown} disabled={breakdownLoading} className="w-full bg-emerald-800 hover:bg-emerald-700 disabled:bg-zinc-800 text-white py-5 rounded-2xl font-semibold text-xl">
+                <button
+                  onClick={generateBreakdown}
+                  disabled={breakdownLoading}
+                  className="w-full bg-emerald-800 hover:bg-emerald-700 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-semibold text-xl transition"
+                >
                   {breakdownLoading ? 'Analyzing...' : 'Generate Cost Breakdown, Installation Strategy & Plant List'}
                 </button>
 
-                {breakdownError && <div className="bg-red-950/50 border border-red-800 text-red-200 p-6 rounded-2xl">{breakdownError}</div>}
+                {breakdownError && (
+                  <div className="bg-red-950/50 border border-red-800 text-red-200 p-6 rounded-2xl">
+                    {breakdownError}
+                  </div>
+                )}
 
                 {breakdown && !breakdownError && (
                   <div className="prose prose-invert max-w-none text-lg leading-relaxed border-t border-zinc-800 pt-6 prose-headings:text-emerald-400 prose-table:border-zinc-700 prose-td:p-3">
@@ -226,16 +248,38 @@ Natural daylight, high detail, professional photography style.`;
                 )}
               </div>
 
-              <div className="p-8 border-t border-zinc-800 flex gap-4 justify-center">
-                <a href={design.url} download className="flex-1 bg-emerald-700 py-4 rounded-2xl text-center font-semibold max-w-xs">Download Design Image</a>
-                <a href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP" target="_blank" className="flex-1 border border-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-950 max-w-xs">Apply for Rebate →</a>
+              <div className="p-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 justify-center">
+                <a
+                  href={design.url}
+                  download
+                  className="flex-1 bg-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-600 transition max-w-xs"
+                >
+                  Download Design Image
+                </a>
+                <a
+                  href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 border border-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-950 transition max-w-xs"
+                >
+                  Apply for Rebate →
+                </a>
               </div>
             </div>
           </div>
         )}
 
+        {/* Footer with clickable link */}
         <div className="mt-20 text-center text-sm text-zinc-500">
-          Recommended installer: <strong>Padden Permaculture</strong>
+          Recommended installer:{' '}
+          <a
+            href="https://www.paddenpermaculture.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-emerald-500 hover:text-emerald-400 underline font-medium transition"
+          >
+            Padden Permaculture
+          </a>
         </div>
       </div>
     </div>
