@@ -15,7 +15,7 @@ export default function LandscapeTool() {
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
 
-  // Customization state
+  // Customization state (unchanged from previous)
   const [nativePlanting, setNativePlanting] = useState(true);
   const [rainGarden, setRainGarden] = useState(false);
   const [hardscape, setHardscape] = useState(false);
@@ -104,11 +104,10 @@ Natural daylight, high detail, professional photography style.`;
 
   const generateDetailedPlan = async () => {
     if (!design) {
-      alert('Generate the concept design first.');
+      alert('Please generate the perspective concept first.');
       return;
     }
     setPlanLoading(true);
-    setDetailedPlan(null);
 
     const planPrompt = `Create a clean, professional top-down landscape plan (orthographic / bird's-eye view) based on this yard and the proposed design.
 
@@ -126,10 +125,8 @@ Show only yard modifications with:
 Aspect ratio 1:1 or 4:3 for plan layout.`;
 
     try {
-      // Prefer using the original reference photo if available (better scale accuracy)
       let base64Image = referenceFile ? await fileToBase64(referenceFile) : null;
       if (!base64Image && design) {
-        // Fallback: fetch concept image and convert to base64
         const blob = await fetch(design.url).then(r => r.blob());
         const file = new File([blob], 'concept.jpg', { type: 'image/jpeg' });
         base64Image = await fileToBase64(file);
@@ -159,9 +156,9 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
   };
 
   const generateBreakdown = async () => {
-    const imageToUse = detailedPlan?.url || design?.url;
-    if (!imageToUse) {
-      alert('No design or detailed plan available yet.');
+    const imageToAnalyze = detailedPlan?.url || design?.url;
+    if (!imageToAnalyze) {
+      alert('No design generated yet.');
       return;
     }
 
@@ -174,7 +171,7 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageUrl: imageToUse,
+          imageUrl: imageToAnalyze,
           tier: 'Custom Landscape',
         }),
       });
@@ -233,7 +230,7 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
           </div>
         </div>
 
-        {/* Customize Features */}
+        {/* Customize Section */}
         <div className="mb-12">
           <h2 className="text-3xl font-semibold text-center mb-8">Customize Your Landscape</h2>
           <div className="space-y-8">
@@ -369,90 +366,100 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
           </div>
         </div>
 
-        {/* Generate Concept Button */}
+        {/* Generate Concept */}
         <div className="text-center mb-16">
           <button
             onClick={generateDesign}
             disabled={loading}
-            className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white text-2xl font-semibold px-16 py-6 rounded-3xl transition shadow-xl"
+            className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-zinc-800 text-white text-2xl font-semibold px-16 py-6 rounded-3xl transition shadow-xl"
           >
-            {loading ? 'Generating Concept...' : 'Generate My Landscape Design (Perspective View)'}
+            {loading ? 'Generating...' : 'Generate My Landscape Design'}
           </button>
         </div>
 
-        {/* Results Section */}
+        {/* Results */}
         {design && (
           <div className="mt-12">
-            <h2 className="text-3xl font-semibold text-center mb-8">Your Landscape Design</h2>
+            <h2 className="text-3xl font-semibold text-center mb-8">Your Custom Design</h2>
 
-            {/* Concept Image */}
+            {/* Perspective Concept */}
             <div className="mb-12">
               <h3 className="text-2xl font-medium text-center mb-4">Perspective Concept View</h3>
               <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto">
-                <img src={design.url} className="w-full h-96 object-cover" alt="Generated concept design" />
+                <img src={design.url} className="w-full h-96 object-cover" alt="Generated concept" />
               </div>
             </div>
 
-            {/* Step 2: Generate Detailed Plan */}
-            {!detailedPlan ? (
-              <div className="text-center mb-16">
+            {/* Next Step Buttons */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 max-w-4xl mx-auto">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 text-center">
+                <h4 className="text-xl font-semibold mb-4">Next: Detailed Plan</h4>
+                <p className="text-zinc-400 mb-6 text-sm">
+                  Top-down view with labels, approximate square footages, materials, and zones
+                </p>
                 <button
                   onClick={generateDetailedPlan}
                   disabled={planLoading}
-                  className="bg-indigo-700 hover:bg-indigo-600 disabled:bg-zinc-800 text-white text-xl font-semibold px-12 py-5 rounded-3xl transition shadow-xl"
+                  className="bg-indigo-700 hover:bg-indigo-600 disabled:bg-zinc-800 text-white font-semibold px-10 py-4 rounded-2xl transition w-full"
                 >
-                  {planLoading ? 'Generating Detailed Plan...' : 'Generate Detailed Plan (Top-Down View with Labels & Sq Ft)'}
+                  {planLoading ? 'Generating Plan...' : 'Generate Detailed Plan'}
                 </button>
-                <p className="text-zinc-400 mt-3 text-sm max-w-2xl mx-auto">
-                  Creates a clean, labeled top-down plan diagram showing approximate square footages, materials, and layout zones for better planning and rebate documentation.
-                </p>
               </div>
-            ) : (
+
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 text-center">
+                <h4 className="text-xl font-semibold mb-4">Next: Full Breakdown</h4>
+                <p className="text-zinc-400 mb-6 text-sm">
+                  Cost estimate, installation steps, plant list, maintenance & rebate info
+                </p>
+                <button
+                  onClick={generateBreakdown}
+                  disabled={breakdownLoading}
+                  className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-zinc-800 text-white font-semibold px-10 py-4 rounded-2xl transition w-full"
+                >
+                  {breakdownLoading ? 'Analyzing...' : 'Generate Cost Breakdown, Strategy & Plant List'}
+                </button>
+              </div>
+            </div>
+
+            {/* Show Detailed Plan if generated */}
+            {detailedPlan && (
               <div className="mb-12">
                 <h3 className="text-2xl font-medium text-center mb-4">Detailed Top-Down Plan</h3>
                 <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto">
-                  <img src={detailedPlan.url} className="w-full h-auto object-contain max-h-[700px]" alt="Detailed landscape plan view" />
+                  <img src={detailedPlan.url} className="w-full h-auto object-contain max-h-[700px]" alt="Detailed plan" />
                 </div>
               </div>
             )}
 
-            {/* Step 3: Generate Breakdown */}
-            <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto p-8 space-y-6">
-              <button
-                onClick={generateBreakdown}
-                disabled={breakdownLoading}
-                className="w-full bg-emerald-800 hover:bg-emerald-700 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-semibold text-xl transition"
-              >
-                {breakdownLoading
-                  ? 'Analyzing...'
-                  : 'Generate Detailed Plan, Installation Strategy & Estimate, and Plant List'}
-              </button>
+            {/* Breakdown Display */}
+            {(breakdown || breakdownLoading || breakdownError) && (
+              <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto p-8 space-y-6">
+                {breakdownError && (
+                  <div className="bg-red-950/50 border border-red-800 text-red-200 p-6 rounded-2xl">
+                    {breakdownError}
+                  </div>
+                )}
 
-              {breakdownError && (
-                <div className="bg-red-950/50 border border-red-800 text-red-200 p-6 rounded-2xl">
-                  {breakdownError}
-                </div>
-              )}
+                {breakdown && !breakdownError && (
+                  <div className="prose prose-invert max-w-none text-lg leading-relaxed prose-headings:text-emerald-400 prose-table:border-zinc-700 prose-td:p-3">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{breakdown}</ReactMarkdown>
+                  </div>
+                )}
 
-              {breakdown && !breakdownError && (
-                <div className="prose prose-invert max-w-none text-lg leading-relaxed border-t border-zinc-800 pt-6 prose-headings:text-emerald-400 prose-table:border-zinc-700 prose-td:p-3">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{breakdown}</ReactMarkdown>
-                </div>
-              )}
+                {breakdownLoading && !breakdown && !breakdownError && (
+                  <div className="text-center py-8 text-zinc-400 italic">Analyzing your design...</div>
+                )}
+              </div>
+            )}
 
-              {breakdownLoading && !breakdown && !breakdownError && (
-                <div className="text-center py-8 text-zinc-400 italic">Analyzing your design...</div>
-              )}
-            </div>
-
-            {/* Download / Rebate / Schedule CTAs */}
-            <div className="mt-12 p-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 justify-center">
+            {/* Bottom CTAs */}
+            <div className="mt-12 flex flex-col sm:flex-row gap-4 justify-center">
               <a
                 href={(detailedPlan || design).url}
                 download
                 className="flex-1 bg-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-600 transition max-w-xs"
               >
-                Download {detailedPlan ? 'Detailed Plan' : 'Concept Design'}
+                Download {detailedPlan ? 'Detailed Plan' : 'Concept Image'}
               </a>
               <a
                 href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP"
@@ -463,10 +470,10 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
                 Apply for Rebate →
               </a>
               <a
-                href="mailto:patrick@paddenpermaculture.com?subject=Schedule%20In-Person%20Detailed%20Design%20Presentation&body=Hi%20Patrick%2C%0A%0AI%20generated%20a%20landscape%20design%20using%20the%20Paddy%20O'%20Patio%20tool%20and%20would%20like%20to%20schedule%20an%20in-person%20presentation%20of%20a%20detailed%20design.%20My%20name%20is%20...%0APhone%3A%20...%0ALocation%3A%20...%0A%0AThanks!"
+                href="mailto:patrick@paddenpermaculture.com?subject=Schedule%20In-Person%20Detailed%20Design%20Presentation&body=Hi%20Patrick%2C%0A%0AI%20generated%20a%20landscape%20design%20using%20the%20Paddy%20O'%20Patio%20tool%20and%20would%20like%20to%20schedule%20an%20in-person%20presentation.%20My%20name%20is%20...%0APhone%3A%20...%0A%0AThanks!"
                 className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-4 rounded-2xl text-center font-semibold text-white transition max-w-xs"
               >
-                Schedule a Paddy O' Pro to Present a Detailed Design in Person
+                Schedule a Paddy O' Pro Consultation
               </a>
             </div>
           </div>
