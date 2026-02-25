@@ -1,10 +1,8 @@
 'use client';
 import React, { useState } from 'react';
-import { Upload, X, Check, Award, Map, Loader2 } from 'lucide-react';
+import { Upload, X, Award } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-
-const XIP_LINK = 'https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP';
 
 export default function LandscapeTool() {
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
@@ -14,10 +12,7 @@ export default function LandscapeTool() {
   const [breakdown, setBreakdown] = useState('');
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
-  // New state for top-view detailed plan
-  const [topViewUrl, setTopViewUrl] = useState<string | null>(null);
-  const [topViewLoading, setTopViewLoading] = useState(false);
-  const [topViewError, setTopViewError] = useState('');
+
   // Customization state
   const [nativePlanting, setNativePlanting] = useState(true);
   const [rainGarden, setRainGarden] = useState(false);
@@ -56,19 +51,11 @@ export default function LandscapeTool() {
     setDesign(null);
     setBreakdown('');
     setBreakdownError('');
-    setTopViewUrl(null);
-    setTopViewError('');
     let features: string[] = [];
-    if (nativePlanting) {
-      features.push('grass completely removed and replaced with low-water Colorado native perennials, grasses, and shrubs (80%+ native coverage)');
-    }
-    if (rainGarden) {
-      features.push('downspout routed into a beautiful infiltration basin / rain garden with native wetland plants');
-    }
+    if (nativePlanting) features.push('grass completely removed and replaced with low-water Colorado native perennials, grasses, and shrubs (80%+ native coverage)');
+    if (rainGarden) features.push('downspout routed into a beautiful infiltration basin / rain garden with native wetland plants');
     if (hardscape) {
-      const hs = hardscapeType === 'walkway-patio'
-        ? 'permeable walkway AND patio'
-        : 'permeable walkway';
+      const hs = hardscapeType === 'walkway-patio' ? 'permeable walkway AND patio' : 'permeable walkway';
       const mat = hardscapeMaterial === 'stone' ? 'natural stone' : 'pavers';
       features.push(`${hs} made of ${mat}`);
     }
@@ -77,18 +64,15 @@ export default function LandscapeTool() {
       if (culinaryGuild) guilds.push('culinary herb and vegetable guild');
       if (medicinalGuild) guilds.push('medicinal herb guild');
       if (fruitGuild) guilds.push('fruit tree and berry bush guild');
-      if (guilds.length > 0) {
-        features.push(guilds.join(', '));
-      }
+      if (guilds.length > 0) features.push(guilds.join(', '));
     }
-    const featureString = features.length
-      ? `Include these specific features: ${features.join(', ')}. `
-      : '';
+    const featureString = features.length ? `Include these specific features: ${features.join(', ')}. ` : '';
     const finalPrompt = `Photorealistic landscape design for a real Fort Collins, Colorado yard.
 ${featureString}
 ONLY modify the yard/grass/plants/soil/landscape features.
 DO NOT change house, roof, windows, garage, driveway, sidewalks, fences, or any architecture.
 Natural daylight, high detail, professional photography style.`;
+
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -101,10 +85,7 @@ Natural daylight, high detail, professional photography style.`;
           aspect: '16:9',
         }),
       });
-      if (!res.ok) {
-        const errText = await res.text().catch(() => 'No response');
-        throw new Error(`Image generation failed: ${res.status} - ${errText}`);
-      }
+      if (!res.ok) throw new Error(`Image generation failed: ${res.status}`);
       const data = await res.json();
       const imageUrl = data.data?.[0]?.url;
       if (!imageUrl) throw new Error('No image URL returned');
@@ -133,51 +114,13 @@ Natural daylight, high detail, professional photography style.`;
           tier: 'Custom Landscape',
         }),
       });
-      if (!res.ok) {
-        let errorDetail = '';
-        try {
-          const errJson = await res.json();
-          errorDetail = errJson.error || `HTTP ${res.status}`;
-        } catch {
-          errorDetail = (await res.text()) || '(no details)';
-        }
-        throw new Error(`Breakdown request failed: ${errorDetail}`);
-      }
+      if (!res.ok) throw new Error(`Breakdown failed: ${res.status}`);
       const data = await res.json();
-      if (data.breakdown) {
-        setBreakdown(data.breakdown);
-      } else {
-        setBreakdownError('Breakdown was generated but returned empty content.');
-      }
+      setBreakdown(data.breakdown || '');
     } catch (err: any) {
-      console.error('Breakdown error:', err);
-      setBreakdownError(
-        err.message.includes('Model not found') || err.message.includes('invalid argument')
-          ? 'Vision analysis is temporarily unavailable. Try again later or check xAI status.'
-          : 'Failed to generate breakdown: ' + (err.message || 'Unknown error')
-      );
+      setBreakdownError('Failed to generate breakdown: ' + (err.message || 'Unknown error'));
     } finally {
       setBreakdownLoading(false);
-    }
-  };
-
-  const generateTopView = async () => {
-    if (!design) {
-      alert('Generate the main design first.');
-      return;
-    }
-    setTopViewLoading(true);
-    setTopViewError('');
-    setTopViewUrl(null);
-    try {
-      // For now: simulate delay + use placeholder
-      await new Promise(resolve => setTimeout(resolve, 2500));
-      // In real version → call your /api/topview endpoint
-      setTopViewUrl('/top-view-placeholder.png'); // ← replace with real generated URL later
-    } catch (err: any) {
-      setTopViewError('Failed to generate top-view plan: ' + (err.message || 'Unknown error'));
-    } finally {
-      setTopViewLoading(false);
     }
   };
 
@@ -192,25 +135,16 @@ Natural daylight, high detail, professional photography style.`;
   return (
     <div className="min-h-screen bg-zinc-950 text-white py-12 px-6">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-5xl font-serif font-bold text-center text-emerald-600 mb-3">
-          Fort Collins Landscape Design Tool
+        {/* Branded Header */}
+        <h1 className="text-5xl md:text-6xl font-serif font-bold text-center text-emerald-600 mb-2">
+          Paddy O' Patio
         </h1>
-        <p className="text-center text-xl text-zinc-400 mb-6">
-          Design Your Dream Landscape in Fort Collins and Unlock Up to $1,000 in City Rebates
+        <p className="text-center text-2xl md:text-3xl text-zinc-300 mb-1">
+          Fort Collins Landscape Design Tool
         </p>
-
-        {/* Clickable Rebate Program Link – prominent */}
-        <div className="text-center mb-10">
-          <a
-            href={XIP_LINK}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-emerald-800 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl font-semibold transition shadow-lg"
-          >
-            <Award size={20} />
-            View Official Xeriscape Incentive Program Details →
-          </a>
-        </div>
+        <p className="text-center text-xl text-emerald-500/80 mb-12 font-medium italic">
+          Intelligent Regional Designs Instantly
+        </p>
 
         {/* Upload Section */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-12">
@@ -218,8 +152,11 @@ Natural daylight, high detail, professional photography style.`;
           <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-12 text-center">
             {referencePreview ? (
               <div className="relative max-w-md mx-auto">
-                <img src={referencePreview} className="rounded-2xl" alt="Preview" />
-                <button onClick={clearReference} className="absolute top-4 right-4 bg-red-600 p-2 rounded-full">
+                <img src={referencePreview} className="rounded-2xl" alt="Yard preview" />
+                <button
+                  onClick={clearReference}
+                  className="absolute top-4 right-4 bg-red-600 p-2 rounded-full hover:bg-red-700 transition"
+                >
                   <X size={24} />
                 </button>
               </div>
@@ -237,80 +174,80 @@ Natural daylight, high detail, professional photography style.`;
         <div className="mb-12">
           <h2 className="text-3xl font-semibold text-center mb-8">Customize Your Landscape</h2>
           <div className="space-y-8">
-            {/* Native Planting + Rebate Link */}
+            {/* Native Planting */}
             <div className="bg-zinc-900 border border-emerald-700 rounded-3xl p-8 relative">
               <div className="absolute -top-3 -right-3 bg-emerald-600 text-white text-xs font-bold px-4 py-1 rounded-full flex items-center gap-1">
                 <Award size={16} /> UP TO $1,000 REBATE AVAILABLE
               </div>
               <label className="flex items-start gap-4 cursor-pointer">
-                <input type="checkbox" checked={nativePlanting} onChange={(e) => setNativePlanting(e.target.checked)} className="mt-1 w-6 h-6 accent-emerald-600" />
+                <input
+                  type="checkbox"
+                  checked={nativePlanting}
+                  onChange={(e) => setNativePlanting(e.target.checked)}
+                  className="mt-1 w-6 h-6 accent-emerald-600"
+                />
                 <div>
                   <div className="text-2xl font-semibold">Replace grass with low-water Colorado natives</div>
                   <p className="text-zinc-400 mt-1">
-                    Remove all turf and plant native perennials, grasses & shrubs — qualifies for maximum rebate.{' '}
-                    <a href={XIP_LINK} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">
-                      Learn more about the XIP program →
-                    </a>
+                    Remove all turf and plant native perennials, grasses & shrubs — qualifies for maximum rebate
                   </p>
                 </div>
               </label>
             </div>
 
             {/* Rain Garden */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
+            <div className="bg-zinc-900 border border-emerald-700 rounded-3xl p-8">
               <label className="flex items-start gap-4 cursor-pointer">
-                <input type="checkbox" checked={rainGarden} onChange={(e) => setRainGarden(e.target.checked)} className="mt-1 w-6 h-6 accent-emerald-600" />
+                <input
+                  type="checkbox"
+                  checked={rainGarden}
+                  onChange={(e) => setRainGarden(e.target.checked)}
+                  className="mt-1 w-6 h-6 accent-emerald-600"
+                />
                 <div>
-                  <div className="text-2xl font-semibold">Add rain garden + downspout integration</div>
-                  <p className="text-zinc-400 mt-1">Route roof runoff into a beautiful infiltration basin / rain garden with native wetland plants</p>
+                  <div className="text-2xl font-semibold">Add a rain garden</div>
+                  <p className="text-zinc-400 mt-1">
+                    Route downspouts into a decorative infiltration basin with native wetland plants — captures runoff & qualifies for water-wise credits
+                  </p>
                 </div>
               </label>
             </div>
 
             {/* Hardscape */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
+            <div className="bg-zinc-900 border border-emerald-700 rounded-3xl p-8">
               <label className="flex items-start gap-4 cursor-pointer">
-                <input type="checkbox" checked={hardscape} onChange={(e) => setHardscape(e.target.checked)} className="mt-1 w-6 h-6 accent-emerald-600" />
-                <div className="flex-1">
-                  <div className="text-2xl font-semibold">Add hardscape</div>
-                  <p className="text-zinc-400 mt-1">Walkway and/or patio</p>
-
+                <input
+                  type="checkbox"
+                  checked={hardscape}
+                  onChange={(e) => setHardscape(e.target.checked)}
+                  className="mt-1 w-6 h-6 accent-emerald-600"
+                />
+                <div>
+                  <div className="text-2xl font-semibold">Add permeable hardscape</div>
+                  <p className="text-zinc-400 mt-1">Permeable materials reduce runoff and look great</p>
                   {hardscape && (
-                    <div className="mt-6 space-y-6 pl-2 border-l-2 border-zinc-700">
+                    <div className="mt-6 space-y-4 pl-10">
                       <div>
-                        <p className="text-sm text-zinc-400 mb-2">Choose layout</p>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => setHardscapeType('walkway')}
-                            className={`flex-1 py-3 rounded-2xl text-sm font-medium transition ${hardscapeType === 'walkway' ? 'bg-emerald-700 text-white' : 'bg-zinc-800 hover:bg-zinc-700'}`}
-                          >
-                            Walkway
-                          </button>
-                          <button
-                            onClick={() => setHardscapeType('walkway-patio')}
-                            className={`flex-1 py-3 rounded-2xl text-sm font-medium transition ${hardscapeType === 'walkway-patio' ? 'bg-emerald-700 text-white' : 'bg-zinc-800 hover:bg-zinc-700'}`}
-                          >
-                            Walkway & Patio
-                          </button>
-                        </div>
+                        <label className="block text-lg mb-2">Type</label>
+                        <select
+                          value={hardscapeType}
+                          onChange={(e) => setHardscapeType(e.target.value as 'walkway' | 'walkway-patio')}
+                          className="bg-zinc-800 border border-zinc-700 rounded-lg p-3 w-full text-white"
+                        >
+                          <option value="walkway">Walkway only</option>
+                          <option value="walkway-patio">Walkway + Patio</option>
+                        </select>
                       </div>
-
                       <div>
-                        <p className="text-sm text-zinc-400 mb-2">Material</p>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => setHardscapeMaterial('pavers')}
-                            className={`flex-1 py-3 rounded-2xl text-sm font-medium transition ${hardscapeMaterial === 'pavers' ? 'bg-emerald-700 text-white' : 'bg-zinc-800 hover:bg-zinc-700'}`}
-                          >
-                            Pavers
-                          </button>
-                          <button
-                            onClick={() => setHardscapeMaterial('stone')}
-                            className={`flex-1 py-3 rounded-2xl text-sm font-medium transition ${hardscapeMaterial === 'stone' ? 'bg-emerald-700 text-white' : 'bg-zinc-800 hover:bg-zinc-700'}`}
-                          >
-                            Natural Stone
-                          </button>
-                        </div>
+                        <label className="block text-lg mb-2">Material</label>
+                        <select
+                          value={hardscapeMaterial}
+                          onChange={(e) => setHardscapeMaterial(e.target.value as 'stone' | 'pavers')}
+                          className="bg-zinc-800 border border-zinc-700 rounded-lg p-3 w-full text-white"
+                        >
+                          <option value="pavers">Pavers</option>
+                          <option value="stone">Natural stone</option>
+                        </select>
                       </div>
                     </div>
                   )}
@@ -318,31 +255,49 @@ Natural daylight, high detail, professional photography style.`;
               </label>
             </div>
 
-            {/* Edible Guild */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
+            {/* Edible Guilds */}
+            <div className="bg-zinc-900 border border-emerald-700 rounded-3xl p-8">
               <label className="flex items-start gap-4 cursor-pointer">
-                <input type="checkbox" checked={edibleGuild} onChange={(e) => setEdibleGuild(e.target.checked)} className="mt-1 w-6 h-6 accent-emerald-600" />
-                <div className="flex-1">
-                  <div className="text-2xl font-semibold">Add edible / permaculture guild</div>
-                  <p className="text-zinc-400 mt-1">Integrate food-producing plants into the design</p>
-
+                <input
+                  type="checkbox"
+                  checked={edibleGuild}
+                  onChange={(e) => setEdibleGuild(e.target.checked)}
+                  className="mt-1 w-6 h-6 accent-emerald-600"
+                />
+                <div>
+                  <div className="text-2xl font-semibold">Incorporate edible / productive guilds</div>
+                  <p className="text-zinc-400 mt-1">
+                    Food-producing plants integrated into the design (herbs, veggies, berries, fruit trees)
+                  </p>
                   {edibleGuild && (
-                    <div className="mt-6 pl-2 border-l-2 border-zinc-700 space-y-4">
-                      <p className="text-sm text-zinc-400 mb-2">Select all that apply:</p>
-                      <div className="space-y-3">
-                        <label className="flex items-center gap-3 cursor-pointer">
-                          <input type="checkbox" checked={culinaryGuild} onChange={(e) => setCulinaryGuild(e.target.checked)} className="w-5 h-5 accent-emerald-600" />
-                          <span>Culinary Herbs & Vegetables</span>
-                        </label>
-                        <label className="flex items-center gap-3 cursor-pointer">
-                          <input type="checkbox" checked={medicinalGuild} onChange={(e) => setMedicinalGuild(e.target.checked)} className="w-5 h-5 accent-emerald-600" />
-                          <span>Medicinal Herbs</span>
-                        </label>
-                        <label className="flex items-center gap-3 cursor-pointer">
-                          <input type="checkbox" checked={fruitGuild} onChange={(e) => setFruitGuild(e.target.checked)} className="w-5 h-5 accent-emerald-600" />
-                          <span>Fruit Trees & Berries</span>
-                        </label>
-                      </div>
+                    <div className="mt-6 space-y-3 pl-10">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={culinaryGuild}
+                          onChange={(e) => setCulinaryGuild(e.target.checked)}
+                          className="w-5 h-5 accent-emerald-600"
+                        />
+                        Culinary herbs & vegetables
+                      </label>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={medicinalGuild}
+                          onChange={(e) => setMedicinalGuild(e.target.checked)}
+                          className="w-5 h-5 accent-emerald-600"
+                        />
+                        Medicinal herbs
+                      </label>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={fruitGuild}
+                          onChange={(e) => setFruitGuild(e.target.checked)}
+                          className="w-5 h-5 accent-emerald-600"
+                        />
+                        Fruit tree + berry bush guild
+                      </label>
                     </div>
                   )}
                 </div>
@@ -358,7 +313,7 @@ Natural daylight, high detail, professional photography style.`;
             disabled={loading}
             className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white text-2xl font-semibold px-16 py-6 rounded-3xl transition shadow-xl"
           >
-            {loading ? 'Generating your custom design...' : 'Generate My Landscape Design'}
+            {loading ? 'Generating...' : 'Generate My Landscape Design'}
           </button>
         </div>
 
@@ -369,92 +324,44 @@ Natural daylight, high detail, professional photography style.`;
             <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto">
               <img src={design.url} className="w-full h-96 object-cover" alt="Generated design" />
               <div className="p-8 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <button
-                    onClick={generateBreakdown}
-                    disabled={breakdownLoading}
-                    className="bg-emerald-800 hover:bg-emerald-700 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-semibold text-xl transition flex items-center justify-center gap-2"
-                  >
-                    {breakdownLoading ? (
-                      <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      'Generate Cost Breakdown, Plants & Strategy'
-                    )}
-                  </button>
-                  <button
-                    onClick={generateTopView}
-                    disabled={topViewLoading}
-                    className="bg-indigo-800 hover:bg-indigo-700 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-semibold text-xl transition flex items-center justify-center gap-2"
-                  >
-                    {topViewLoading ? (
-                      <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        Creating plan view...
-                      </>
-                    ) : (
-                      'Generate Top-Down Detailed Plan (with labels)'
-                    )}
-                  </button>
-                </div>
+                <button
+                  onClick={generateBreakdown}
+                  disabled={breakdownLoading}
+                  className="w-full bg-emerald-800 hover:bg-emerald-700 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-semibold text-xl transition"
+                >
+                  {breakdownLoading ? 'Analyzing...' : 'Generate Cost Breakdown, Installation Strategy & Plant List'}
+                </button>
 
                 {breakdownError && (
-                  <div className="bg-red-950/50 border border-red-800 text-red-200 p-6 rounded-2xl mt-6">
+                  <div className="bg-red-950/50 border border-red-800 text-red-200 p-6 rounded-2xl">
                     {breakdownError}
                   </div>
                 )}
 
                 {breakdown && !breakdownError && (
-                  <div className="prose prose-invert max-w-none text-lg leading-relaxed border-t border-zinc-800 pt-6 mt-6">
+                  <div className="prose prose-invert max-w-none text-lg leading-relaxed border-t border-zinc-800 pt-6 prose-headings:text-emerald-400 prose-table:border-zinc-700 prose-td:p-3">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{breakdown}</ReactMarkdown>
                   </div>
                 )}
 
-                {topViewLoading && !topViewUrl && !topViewError && (
-                  <div className="text-center py-12 text-zinc-400 italic mt-8">
-                    Generating detailed overhead plan with plant locations and labels...
-                  </div>
-                )}
-                {topViewError && (
-                  <div className="bg-red-950/50 border border-red-800 text-red-200 p-6 rounded-2xl mt-6">
-                    {topViewError}
-                  </div>
-                )}
-                {topViewUrl && (
-                  <div className="mt-10 border-t border-zinc-800 pt-8">
-                    <h3 className="text-2xl font-semibold text-center mb-6">Top-Down Detailed Design</h3>
-                    <img
-                      src={topViewUrl}
-                      alt="Top-down labeled permaculture plan"
-                      className="w-full max-h-[800px] object-contain rounded-2xl mx-auto border border-zinc-700"
-                    />
-                    <p className="text-center text-zinc-500 mt-4 text-sm">
-                      Overhead view • Plants, paths, zones and features labeled
-                    </p>
-                    <div className="mt-6 flex justify-center gap-4 flex-wrap">
-                      <a
-                        href={topViewUrl}
-                        download
-                        className="bg-indigo-700 px-8 py-4 rounded-2xl font-semibold hover:bg-indigo-600 transition"
-                      >
-                        Download Plan
-                      </a>
-                    </div>
-                  </div>
+                {breakdownLoading && !breakdown && !breakdownError && (
+                  <div className="text-center py-8 text-zinc-400 italic">Analyzing your design...</div>
                 )}
               </div>
 
-              <div className="p-8 border-t border-zinc-800 flex gap-4 flex-wrap justify-center">
-                <a href={design.url} download className="flex-1 bg-emerald-700 py-4 rounded-2xl text-center font-semibold max-w-xs">
+              <div className="p-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 justify-center">
+                <a
+                  href={design.url}
+                  download
+                  className="flex-1 bg-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-600 transition max-w-xs"
+                >
                   Download Design Image
                 </a>
                 <a
-                  href={XIP_LINK}
+                  href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 border border-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-950 max-w-xs"
+                  className="flex-1 border border-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-950 transition max-w-xs"
                 >
                   Apply for Rebate →
                 </a>
@@ -463,15 +370,17 @@ Natural daylight, high detail, professional photography style.`;
           </div>
         )}
 
-        {/* Footer */}
-        <div className="mt-20 text-center text-sm text-zinc-500 space-y-2">
-          <p>Recommended installer: <strong>Padden Permaculture</strong> (and other City-approved contractors)</p>
-          <p>
-            Learn more about the program:{' '}
-            <a href={XIP_LINK} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">
-              Fort Collins Xeriscape Incentive Program
-            </a>
-          </p>
+        {/* Footer with clickable company link */}
+        <div className="mt-20 text-center text-sm text-zinc-500">
+          Recommended installer:{' '}
+          <a
+            href="https://www.paddenpermaculture.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-emerald-500 hover:text-emerald-400 underline font-medium transition"
+          >
+            Padden Permaculture
+          </a>
         </div>
       </div>
     </div>
