@@ -9,6 +9,8 @@ export default function LandscapeTool() {
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [design, setDesign] = useState<{ url: string; promptUsed: string } | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [detailedPlan, setDetailedPlan] = useState<{ url: string; promptUsed: string } | null>(null);
   const [breakdown, setBreakdown] = useState('');
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
@@ -49,8 +51,10 @@ export default function LandscapeTool() {
   const generateDesign = async () => {
     setLoading(true);
     setDesign(null);
+    setDetailedPlan(null);
     setBreakdown('');
     setBreakdownError('');
+
     let features: string[] = [];
     if (nativePlanting) features.push('grass completely removed and replaced with low-water Colorado native perennials, grasses, and shrubs (80%+ native coverage)');
     if (rainGarden) features.push('downspout routed into a beautiful infiltration basin / rain garden with native wetland plants');
@@ -67,6 +71,7 @@ export default function LandscapeTool() {
       if (guilds.length > 0) features.push(guilds.join(', '));
     }
     const featureString = features.length ? `Include these specific features: ${features.join(', ')}. ` : '';
+
     const finalPrompt = `Photorealistic landscape design for a real Fort Collins, Colorado yard.
 ${featureString}
 ONLY modify the yard/grass/plants/soil/landscape features.
@@ -97,20 +102,79 @@ Natural daylight, high detail, professional photography style.`;
     }
   };
 
-  const generateBreakdown = async () => {
+  const generateDetailedPlan = async () => {
     if (!design) {
-      alert('No design image generated yet. Please generate a design first.');
+      alert('Generate the concept design first.');
       return;
     }
+    setPlanLoading(true);
+    setDetailedPlan(null);
+
+    const planPrompt = `Create a clean, professional top-down landscape plan (orthographic / bird's-eye view) based on this yard and the proposed design.
+
+Use diagram/technical drawing style: light background, clear black outlines, labeled zones with text annotations, approximate square footages shown, material labels.
+
+Preserve exact proportions of house, driveway, garage, sidewalks, fences from the reference.
+
+Show only yard modifications with:
+- Beds, paths, patios, rain garden basin, tree/shrub groupings clearly outlined
+- Text labels including square footage, e.g. "Native Perennial Bed – 320 sq ft", "Permeable Paver Patio – 180 sq ft", "Rain Garden", "Fruit Tree Guild"
+- Material notations: permeable pavers, natural stone, mulch, decomposed granite paths, etc.
+- Simple symbols: circles/dots for trees/shrubs, patterns for mulch/perennials
+- High readability, professional CAD-like aesthetic, not photorealistic.
+
+Aspect ratio 1:1 or 4:3 for plan layout.`;
+
+    try {
+      // Prefer using the original reference photo if available (better scale accuracy)
+      let base64Image = referenceFile ? await fileToBase64(referenceFile) : null;
+      if (!base64Image && design) {
+        // Fallback: fetch concept image and convert to base64
+        const blob = await fetch(design.url).then(r => r.blob());
+        const file = new File([blob], 'concept.jpg', { type: 'image/jpeg' });
+        base64Image = await fileToBase64(file);
+      }
+
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: planPrompt,
+          isEdit: true,
+          imageBase64: base64Image,
+          n: 1,
+          aspect: '1:1',
+        }),
+      });
+      if (!res.ok) throw new Error(`Plan generation failed: ${res.status}`);
+      const data = await res.json();
+      const imageUrl = data.data?.[0]?.url;
+      if (!imageUrl) throw new Error('No plan image returned');
+      setDetailedPlan({ url: imageUrl, promptUsed: planPrompt });
+    } catch (err: any) {
+      alert('Detailed plan generation failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setPlanLoading(false);
+    }
+  };
+
+  const generateBreakdown = async () => {
+    const imageToUse = detailedPlan?.url || design?.url;
+    if (!imageToUse) {
+      alert('No design or detailed plan available yet.');
+      return;
+    }
+
     setBreakdownLoading(true);
     setBreakdown('');
     setBreakdownError('');
+
     try {
       const res = await fetch('/api/breakdown', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageUrl: design.url,
+          imageUrl: imageToUse,
           tier: 'Custom Landscape',
         }),
       });
@@ -135,7 +199,6 @@ Natural daylight, high detail, professional photography style.`;
   return (
     <div className="min-h-screen bg-zinc-950 text-white py-12 px-6">
       <div className="max-w-5xl mx-auto">
-        {/* Branded Header */}
         <h1 className="text-5xl md:text-6xl font-serif font-bold text-center text-emerald-600 mb-2">
           Paddy O' Patio
         </h1>
@@ -306,78 +369,109 @@ Natural daylight, high detail, professional photography style.`;
           </div>
         </div>
 
-        {/* Generate Button */}
+        {/* Generate Concept Button */}
         <div className="text-center mb-16">
           <button
             onClick={generateDesign}
             disabled={loading}
             className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white text-2xl font-semibold px-16 py-6 rounded-3xl transition shadow-xl"
           >
-            {loading ? 'Generating...' : 'Generate My Landscape Design'}
+            {loading ? 'Generating Concept...' : 'Generate My Landscape Design (Perspective View)'}
           </button>
         </div>
 
-        {/* Result Section */}
+        {/* Results Section */}
         {design && (
           <div className="mt-12">
-            <h2 className="text-3xl font-semibold text-center mb-8">Your Custom Design</h2>
-            <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto">
-              <img src={design.url} className="w-full h-96 object-cover" alt="Generated design" />
-              <div className="p-8 space-y-6">
+            <h2 className="text-3xl font-semibold text-center mb-8">Your Landscape Design</h2>
+
+            {/* Concept Image */}
+            <div className="mb-12">
+              <h3 className="text-2xl font-medium text-center mb-4">Perspective Concept View</h3>
+              <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto">
+                <img src={design.url} className="w-full h-96 object-cover" alt="Generated concept design" />
+              </div>
+            </div>
+
+            {/* Step 2: Generate Detailed Plan */}
+            {!detailedPlan ? (
+              <div className="text-center mb-16">
                 <button
-                  onClick={generateBreakdown}
-                  disabled={breakdownLoading}
-                  className="w-full bg-emerald-800 hover:bg-emerald-700 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-semibold text-xl transition"
+                  onClick={generateDetailedPlan}
+                  disabled={planLoading}
+                  className="bg-indigo-700 hover:bg-indigo-600 disabled:bg-zinc-800 text-white text-xl font-semibold px-12 py-5 rounded-3xl transition shadow-xl"
                 >
-                  {breakdownLoading ? 'Analyzing...' : 'Generate Cost Breakdown, Installation Strategy & Plant List'}
+                  {planLoading ? 'Generating Detailed Plan...' : 'Generate Detailed Plan (Top-Down View with Labels & Sq Ft)'}
                 </button>
-
-                {breakdownError && (
-                  <div className="bg-red-950/50 border border-red-800 text-red-200 p-6 rounded-2xl">
-                    {breakdownError}
-                  </div>
-                )}
-
-                {breakdown && !breakdownError && (
-                  <div className="prose prose-invert max-w-none text-lg leading-relaxed border-t border-zinc-800 pt-6 prose-headings:text-emerald-400 prose-table:border-zinc-700 prose-td:p-3">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{breakdown}</ReactMarkdown>
-                  </div>
-                )}
-
-                {breakdownLoading && !breakdown && !breakdownError && (
-                  <div className="text-center py-8 text-zinc-400 italic">Analyzing your design...</div>
-                )}
+                <p className="text-zinc-400 mt-3 text-sm max-w-2xl mx-auto">
+                  Creates a clean, labeled top-down plan diagram showing approximate square footages, materials, and layout zones for better planning and rebate documentation.
+                </p>
               </div>
-
-              {/* CTA Buttons Row - Added the new Schedule button */}
-              <div className="p-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 justify-center items-stretch">
-                <a
-                  href={design.url}
-                  download
-                  className="flex-1 bg-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-600 transition"
-                >
-                  Download Design Image
-                </a>
-                <a
-                  href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 border border-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-950 transition"
-                >
-                  Apply for Rebate →
-                </a>
-                <a
-                  href="mailto:patrick@paddenpermaculture.com?subject=Schedule%20In-Person%20Detailed%20Design%20Presentation&body=Hi%20Patrick%2C%0A%0AI%20generated%20a%20landscape%20design%20using%20the%20Paddy%20O'%20Patio%20tool%20and%20would%20like%20to%20schedule%20an%20in-person%20presentation%20of%20a%20detailed%20design.%20My%20name%20is%20...%0APhone%3A%20...%0ALocation%3A%20...%0A%0AThanks!"
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-4 rounded-2xl text-center font-semibold text-white transition"
-                >
-                  Schedule a Paddy O' Pro to Present a Detailed Design in Person
-                </a>
+            ) : (
+              <div className="mb-12">
+                <h3 className="text-2xl font-medium text-center mb-4">Detailed Top-Down Plan</h3>
+                <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto">
+                  <img src={detailedPlan.url} className="w-full h-auto object-contain max-h-[700px]" alt="Detailed landscape plan view" />
+                </div>
               </div>
+            )}
+
+            {/* Step 3: Generate Breakdown */}
+            <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto p-8 space-y-6">
+              <button
+                onClick={generateBreakdown}
+                disabled={breakdownLoading}
+                className="w-full bg-emerald-800 hover:bg-emerald-700 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-semibold text-xl transition"
+              >
+                {breakdownLoading
+                  ? 'Analyzing...'
+                  : 'Generate Detailed Plan, Installation Strategy & Estimate, and Plant List'}
+              </button>
+
+              {breakdownError && (
+                <div className="bg-red-950/50 border border-red-800 text-red-200 p-6 rounded-2xl">
+                  {breakdownError}
+                </div>
+              )}
+
+              {breakdown && !breakdownError && (
+                <div className="prose prose-invert max-w-none text-lg leading-relaxed border-t border-zinc-800 pt-6 prose-headings:text-emerald-400 prose-table:border-zinc-700 prose-td:p-3">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{breakdown}</ReactMarkdown>
+                </div>
+              )}
+
+              {breakdownLoading && !breakdown && !breakdownError && (
+                <div className="text-center py-8 text-zinc-400 italic">Analyzing your design...</div>
+              )}
+            </div>
+
+            {/* Download / Rebate / Schedule CTAs */}
+            <div className="mt-12 p-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 justify-center">
+              <a
+                href={(detailedPlan || design).url}
+                download
+                className="flex-1 bg-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-600 transition max-w-xs"
+              >
+                Download {detailedPlan ? 'Detailed Plan' : 'Concept Design'}
+              </a>
+              <a
+                href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 border border-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-950 transition max-w-xs"
+              >
+                Apply for Rebate →
+              </a>
+              <a
+                href="mailto:patrick@paddenpermaculture.com?subject=Schedule%20In-Person%20Detailed%20Design%20Presentation&body=Hi%20Patrick%2C%0A%0AI%20generated%20a%20landscape%20design%20using%20the%20Paddy%20O'%20Patio%20tool%20and%20would%20like%20to%20schedule%20an%20in-person%20presentation%20of%20a%20detailed%20design.%20My%20name%20is%20...%0APhone%3A%20...%0ALocation%3A%20...%0A%0AThanks!"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-4 rounded-2xl text-center font-semibold text-white transition max-w-xs"
+              >
+                Schedule a Paddy O' Pro to Present a Detailed Design in Person
+              </a>
             </div>
           </div>
         )}
 
-        {/* Footer */}
         <div className="mt-20 text-center text-sm text-zinc-500">
           Recommended installer:{' '}
           <a
