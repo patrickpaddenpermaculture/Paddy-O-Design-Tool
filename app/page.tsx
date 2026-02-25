@@ -349,11 +349,12 @@ Natural daylight, high detail, professional photography style.`;
                 )}
               </div>
 
-              <div className="p-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 justify-center">
+              {/* CTA Buttons Row - Added the new Schedule button */}
+              <div className="p-8 border-t border-zinc-800 flex flex-col sm:flex-row gap-4 justify-center items-stretch">
                 <a
                   href={design.url}
                   download
-                  className="flex-1 bg-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-600 transition max-w-xs"
+                  className="flex-1 bg-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-600 transition"
                 >
                   Download Design Image
                 </a>
@@ -361,16 +362,22 @@ Natural daylight, high detail, professional photography style.`;
                   href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/XIP"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 border border-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-950 transition max-w-xs"
+                  className="flex-1 border border-emerald-700 py-4 rounded-2xl text-center font-semibold hover:bg-emerald-950 transition"
                 >
                   Apply for Rebate →
+                </a>
+                <a
+                  href="mailto:patrick@paddenpermaculture.com?subject=Schedule%20In-Person%20Detailed%20Design%20Presentation&body=Hi%20Patrick%2C%0A%0AI%20generated%20a%20landscape%20design%20using%20the%20Paddy%20O'%20Patio%20tool%20and%20would%20like%20to%20schedule%20an%20in-person%20presentation%20of%20a%20detailed%20design.%20My%20name%20is%20...%0APhone%3A%20...%0ALocation%3A%20...%0A%0AThanks!"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-4 rounded-2xl text-center font-semibold text-white transition"
+                >
+                  Schedule a Paddy O' Pro to Present a Detailed Design in Person
                 </a>
               </div>
             </div>
           </div>
         )}
 
-        {/* Footer with clickable company link */}
+        {/* Footer */}
         <div className="mt-20 text-center text-sm text-zinc-500">
           Recommended installer:{' '}
           <a
