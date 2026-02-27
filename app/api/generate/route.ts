@@ -7,7 +7,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or empty request body' }, { status: 400 });
     }
 
-    const { prompt, isEdit = false, imageBase64 = null, aspect = '16:9', n = 3 } = body;
+    // Rookie Tip: We define defaults here to ensure Vercel knows these aren't "empty"
+    const { prompt, isEdit = false, imageBase64 = null, aspect = '1.0', n = 1 } = body;
 
     const apiKey = process.env.XAI_API_KEY;
     if (!apiKey) {
@@ -15,18 +16,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Server misconfigured - no API key' }, { status: 500 });
     }
 
-    const endpoint = isEdit ? 'https://api.x.ai/v1/images/edits' : 'https://api.x.ai/v1/images/generations';
+    // Correcting the endpoint logic
+    const endpoint = 'https://api.x.ai/v1/images/generations';
 
+    // Building a strictly typed request object
     const requestBody: any = {
-      prompt: isEdit ? `Transform the uploaded yard photo into: ${prompt}` : prompt,
-      model: 'grok-imagine-image',
+      model: 'grok-beta', // Ensure this matches the exact xAI model name
+      prompt: isEdit ? `Landscape design edit: ${prompt}` : prompt,
+      n: Number(n), // Force it to be a number
       response_format: 'url',
-      n,
-      aspect_ratio: aspect,
     };
 
+    // Note: aspect_ratio for Grok is often '1:1' or '16:9' as a string
+    if (aspect) {
+      requestBody.aspect_ratio = aspect;
+    }
+
     if (isEdit && imageBase64) {
-      requestBody.image = { url: `data:image/jpeg;base64,${imageBase64}` };
+      // If doing an edit, we send the image as a reference
+      requestBody.image = imageBase64; 
     }
 
     const xaiRes = await fetch(endpoint, {
@@ -38,25 +46,18 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(requestBody),
     });
 
-    const rawResponse = await xaiRes.text();
-
     if (!xaiRes.ok) {
-      console.error('[generate] xAI error:', xaiRes.status, rawResponse);
+      const errorText = await xaiRes.text();
+      console.error('[generate] xAI error:', xaiRes.status, errorText);
       return NextResponse.json(
-        { error: `xAI API error (${xaiRes.status}): ${rawResponse || '(no details)'}` },
+        { error: `xAI API error: ${errorText}` },
         { status: xaiRes.status }
       );
     }
 
-    let data;
-    try {
-      data = JSON.parse(rawResponse);
-    } catch (parseErr) {
-      console.error('[generate] JSON parse failed:', parseErr, rawResponse);
-      return NextResponse.json({ error: 'xAI returned invalid response' }, { status: 500 });
-    }
-
+    const data = await xaiRes.json();
     return NextResponse.json(data);
+
   } catch (err: any) {
     console.error('[generate] Proxy crash:', err);
     return NextResponse.json({ error: 'Internal error: ' + (err.message || 'unknown') }, { status: 500 });
