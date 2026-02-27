@@ -4,8 +4,8 @@ const nextConfig = {
     'three',
     '@react-three/fiber',
     '@react-three/drei',
-    '@runwayml/sdk'
+    '@runwayml/sdk',
   ],
 };
 
-module.exports = nextConfig;
+export default nextConfig;
