@@ -3,38 +3,40 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
-    if (!body) {
-      return NextResponse.json({ error: 'Invalid or empty request body' }, { status: 400 });
-    }
+    if (!body) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
 
-    // Rookie Tip: We define defaults here to ensure Vercel knows these aren't "empty"
-    const { prompt, isEdit = false, imageBase64 = null, aspect = '1.0', n = 1 } = body;
+    // 'images' is now an array of base64 strings
+    const { prompt, images = [], isEdit = false, aspect = '1:1' } = body;
 
     const apiKey = process.env.XAI_API_KEY;
-    if (!apiKey) {
-      console.error('[generate] Missing XAI_API_KEY env var');
-      return NextResponse.json({ error: 'Server misconfigured - no API key' }, { status: 500 });
-    }
+    if (!apiKey) return NextResponse.json({ error: 'API key missing' }, { status: 500 });
 
-    // Correcting the endpoint logic
     const endpoint = 'https://api.x.ai/v1/images/generations';
 
-    // Building a strictly typed request object
+    // We build the request. If there are multiple images, 
+    // we provide them as a context array for the vision model.
     const requestBody: any = {
-      model: 'grok-beta', // Ensure this matches the exact xAI model name
-      prompt: isEdit ? `Landscape design edit: ${prompt}` : prompt,
-      n: Number(n), // Force it to be a number
+      model: 'grok-beta', 
+      prompt: prompt,
+      n: 1,
       response_format: 'url',
+      aspect_ratio: aspect
     };
 
-    // Note: aspect_ratio for Grok is often '1:1' or '16:9' as a string
-    if (aspect) {
-      requestBody.aspect_ratio = aspect;
-    }
-
-    if (isEdit && imageBase64) {
-      // If doing an edit, we send the image as a reference
-      requestBody.image = imageBase64; 
+    // If images are provided, we attach them. 
+    // Grok-beta handles these as reference inputs.
+    if (images && images.length > 0) {
+      // For a single image (Phase 1)
+      if (images.length === 1) {
+        requestBody.image = images[0];
+      } 
+      // For multiple images (Phase 2 - The Merge)
+      else {
+        requestBody.image = images[0]; // Primary reference (Design)
+        requestBody.mask = images[1];  // Secondary reference (Satellite/Map)
+        // Note: Check xAI documentation for 'mask' vs 'image_reference' 
+        // depending on their latest Beta schema.
+      }
     }
 
     const xaiRes = await fetch(endpoint, {
@@ -48,18 +50,13 @@ export async function POST(req: NextRequest) {
 
     if (!xaiRes.ok) {
       const errorText = await xaiRes.text();
-      console.error('[generate] xAI error:', xaiRes.status, errorText);
-      return NextResponse.json(
-        { error: `xAI API error: ${errorText}` },
-        { status: xaiRes.status }
-      );
+      return NextResponse.json({ error: errorText }, { status: xaiRes.status });
     }
 
     const data = await xaiRes.json();
     return NextResponse.json(data);
 
   } catch (err: any) {
-    console.error('[generate] Proxy crash:', err);
-    return NextResponse.json({ error: 'Internal error: ' + (err.message || 'unknown') }, { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
