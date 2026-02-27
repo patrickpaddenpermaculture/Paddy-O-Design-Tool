@@ -1,12 +1,11 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Upload, X, Award } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-// ── 3D support imports ─────────────────────────────────────────────
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, useGLTF, Environment, Grid } from '@react-three/drei';
+// Dynamic lazy import for 3D viewer (prevents Vercel server bundling errors)
+const Lazy3DViewer = React.lazy(() => import('./Lazy3DViewer'));
 
 export default function LandscapeTool() {
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
@@ -292,11 +291,6 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
     });
   };
 
-  function Model({ url }: { url: string }) {
-    const { scene } = useGLTF(url);
-    return <primitive object={scene} dispose={null} />;
-  }
-
   return (
     <div className="min-h-screen bg-zinc-950 text-white py-12 px-6">
       <div className="max-w-5xl mx-auto">
@@ -356,18 +350,9 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
                 Drag to orbit • Scroll to zoom • Position for clean top-down view • Then capture
               </div>
               <div className="border border-zinc-700 rounded-2xl overflow-hidden" style={{ height: '400px' }}>
-                <Canvas
-                  gl={{ preserveDrawingBuffer: true }}
-                  camera={{ position: [0, 15, 25], fov: 45 }}
-                  style={{ background: '#111' }}
-                >
-                  <ambientLight intensity={0.6} />
-                  <directionalLight position={[10, 20, 5]} intensity={1.2} castShadow />
-                  <Model url={modelUrl} />
-                  <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
-                  <Grid args={[200, 200]} position={[0, -0.01, 0]} />
-                  <Environment preset="sunset" />
-                </Canvas>
+                <Suspense fallback={<div className="flex items-center justify-center h-full text-zinc-500">Loading 3D viewer...</div>}>
+                  <Lazy3DViewer modelUrl={modelUrl} onCapture={handleCaptureTopView} />
+                </Suspense>
               </div>
 
               <button
