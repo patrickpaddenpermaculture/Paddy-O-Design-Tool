@@ -1,8 +1,12 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Upload, X, Award } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+// ── NEW: 3D imports ────────────────────────────────────────────────
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls, useGLTF, Environment, Grid } from '@react-three/drei';
 
 export default function LandscapeTool() {
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
@@ -15,7 +19,7 @@ export default function LandscapeTool() {
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
 
-  // Customization state (unchanged from previous)
+  // Customization state — unchanged
   const [nativePlanting, setNativePlanting] = useState(true);
   const [rainGarden, setRainGarden] = useState(false);
   const [hardscape, setHardscape] = useState(false);
@@ -25,6 +29,17 @@ export default function LandscapeTool() {
   const [culinaryGuild, setCulinaryGuild] = useState(false);
   const [medicinalGuild, setMedicinalGuild] = useState(false);
   const [fruitGuild, setFruitGuild] = useState(false);
+
+  // ── NEW: States for 3D scan viewer ───────────────────────────────
+  const [modelUrl, setModelUrl] = useState<string | null>(null);
+  const [show3DViewer, setShow3DViewer] = useState(false);
+
+  // Cleanup temporary object URL when component unmounts or model changes
+  useEffect(() => {
+    return () => {
+      if (modelUrl) URL.revokeObjectURL(modelUrl);
+    };
+  }, [modelUrl]);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,6 +61,55 @@ export default function LandscapeTool() {
   const clearReference = () => {
     setReferenceFile(null);
     setReferencePreview(null);
+  };
+
+  // ── NEW: Handle upload of 3D scan file ───────────────────────────
+  const handle3DFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.glb') && !file.name.toLowerCase().endsWith('.gltf')) {
+      alert('Please upload a .GLB or .GLTF file (from PolyCam export)');
+      return;
+    }
+
+    if (modelUrl) URL.revokeObjectURL(modelUrl);
+
+    const url = URL.createObjectURL(file);
+    setModelUrl(url);
+    setShow3DViewer(true);
+
+    // Optional: clear any existing photo reference when switching to 3D
+    setReferenceFile(null);
+    setReferencePreview(null);
+  };
+
+  // ── NEW: Capture screenshot from the 3D canvas as top-down reference ──
+  const handleCaptureTopView = () => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) {
+      alert('3D viewer not found — try re-uploading the file');
+      return;
+    }
+
+    const dataURL = canvas.toDataURL('image/png', 1.0);
+    const file = dataURLtoFile(dataURL, 'top-view-from-scan.png');
+
+    setReferenceFile(file);
+    setReferencePreview(dataURL);
+    setShow3DViewer(false); // Hide viewer after capture
+
+    alert('Top-down view captured and set as reference! Now generate your design.');
+  };
+
+  const dataURLtoFile = (dataurl: string, filename: string): File => {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)![1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) u8arr[n] = bstr.charCodeAt(n);
+    return new File([u8arr], filename, { type: mime });
   };
 
   const generateDesign = async () => {
@@ -193,6 +257,12 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
     });
   };
 
+  // ── NEW: Tiny component to render the loaded GLB/GLTF model ───────
+  function Model({ url }: { url: string }) {
+    const { scene } = useGLTF(url);
+    return <primitive object={scene} dispose={null} />;
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white py-12 px-6">
       <div className="max-w-5xl mx-auto">
@@ -206,7 +276,7 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
           Intelligent Regional Designs Instantly
         </p>
 
-        {/* Upload Section */}
+        {/* Upload Section - original photo upload */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-12">
           <h2 className="text-2xl font-semibold mb-4">Upload your yard photo (optional)</h2>
           <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-12 text-center">
@@ -230,7 +300,53 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
           </div>
         </div>
 
-        {/* Customize Section */}
+        {/* ── NEW: 3D Scan Upload Section ────────────────────────────────── */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-12">
+          <h2 className="text-2xl font-semibold mb-4">Or upload 3D scan (PolyCam GLB/GLTF)</h2>
+          <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-12 text-center">
+            <label className="cursor-pointer block">
+              <Upload className="w-16 h-16 mx-auto text-zinc-500 mb-4" />
+              <span className="text-xl text-zinc-300">Click to upload .GLB (recommended) or .GLTF</span>
+              <input
+                type="file"
+                accept=".glb,.gltf"
+                onChange={handle3DFile}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {show3DViewer && modelUrl && (
+            <div className="mt-6">
+              <div className="text-sm text-zinc-400 mb-3">
+                Use mouse: drag to orbit, scroll to zoom. Position for clean top-down view, then capture.
+              </div>
+              <div className="border border-zinc-700 rounded-2xl overflow-hidden" style={{ height: '400px' }}>
+                <Canvas
+                  gl={{ preserveDrawingBuffer: true }} // This allows screenshot capture
+                  camera={{ position: [0, 15, 25], fov: 45 }}
+                  style={{ background: '#111' }}
+                >
+                  <ambientLight intensity={0.6} />
+                  <directionalLight position={[10, 20, 5]} intensity={1.2} castShadow />
+                  <Model url={modelUrl} />
+                  <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+                  <Grid args={[200, 200]} position={[0, -0.01, 0]} /> {/* Helps with scale/orientation */}
+                  <Environment preset="sunset" />
+                </Canvas>
+              </div>
+
+              <button
+                onClick={handleCaptureTopView}
+                className="mt-4 w-full bg-emerald-700 hover:bg-emerald-600 text-white font-semibold py-4 rounded-2xl transition"
+              >
+                Capture Top-Down View → Use as Reference
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Customize Section - your original unchanged */}
         <div className="mb-12">
           <h2 className="text-3xl font-semibold text-center mb-8">Customize Your Landscape</h2>
           <div className="space-y-8">
@@ -366,7 +482,7 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
           </div>
         </div>
 
-        {/* Generate Concept */}
+        {/* Generate Concept - unchanged */}
         <div className="text-center mb-16">
           <button
             onClick={generateDesign}
@@ -377,7 +493,7 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
           </button>
         </div>
 
-        {/* Results */}
+        {/* Results - your original unchanged */}
         {design && (
           <div className="mt-12">
             <h2 className="text-3xl font-semibold text-center mb-8">Your Custom Design</h2>
