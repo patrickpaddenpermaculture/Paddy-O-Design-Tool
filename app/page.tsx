@@ -4,7 +4,7 @@ import { Upload, X, Award } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-// 3D imports
+// ── 3D support imports ─────────────────────────────────────────────
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Environment, Grid } from '@react-three/drei';
 
@@ -19,7 +19,7 @@ export default function LandscapeTool() {
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
 
-  // Customization
+  // Customization state
   const [nativePlanting, setNativePlanting] = useState(true);
   const [rainGarden, setRainGarden] = useState(false);
   const [hardscape, setHardscape] = useState(false);
@@ -30,7 +30,7 @@ export default function LandscapeTool() {
   const [medicinalGuild, setMedicinalGuild] = useState(false);
   const [fruitGuild, setFruitGuild] = useState(false);
 
-  // 3D
+  // 3D viewer state
   const [modelUrl, setModelUrl] = useState<string | null>(null);
   const [show3DViewer, setShow3DViewer] = useState(false);
 
@@ -81,7 +81,7 @@ export default function LandscapeTool() {
     setReferencePreview(null);
   };
 
-  // Resize captured image to prevent API 500 errors
+  // Resize captured image to prevent API 500 errors from huge base64
   const resizeImage = (dataURL: string, maxDim: number = 1024): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -98,7 +98,7 @@ export default function LandscapeTool() {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.85));
+          resolve(canvas.toDataURL('image/jpeg', 0.85)); // JPEG + 85% quality
         } else {
           resolve(dataURL);
         }
