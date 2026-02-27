@@ -4,7 +4,7 @@ import { Upload, X, Award } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-// ── NEW: 3D imports ────────────────────────────────────────────────
+// ── 3D support imports ─────────────────────────────────────────────
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Environment, Grid } from '@react-three/drei';
 
@@ -19,7 +19,7 @@ export default function LandscapeTool() {
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
 
-  // Customization state — unchanged
+  // Customization state
   const [nativePlanting, setNativePlanting] = useState(true);
   const [rainGarden, setRainGarden] = useState(false);
   const [hardscape, setHardscape] = useState(false);
@@ -30,11 +30,10 @@ export default function LandscapeTool() {
   const [medicinalGuild, setMedicinalGuild] = useState(false);
   const [fruitGuild, setFruitGuild] = useState(false);
 
-  // ── NEW: States for 3D scan viewer ───────────────────────────────
+  // 3D viewer state
   const [modelUrl, setModelUrl] = useState<string | null>(null);
   const [show3DViewer, setShow3DViewer] = useState(false);
 
-  // Cleanup temporary object URL when component unmounts or model changes
   useEffect(() => {
     return () => {
       if (modelUrl) URL.revokeObjectURL(modelUrl);
@@ -63,13 +62,12 @@ export default function LandscapeTool() {
     setReferencePreview(null);
   };
 
-  // ── NEW: Handle upload of 3D scan file ───────────────────────────
   const handle3DFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.glb') && !file.name.toLowerCase().endsWith('.gltf')) {
-      alert('Please upload a .GLB or .GLTF file (from PolyCam export)');
+      alert('Please upload a .GLB or .GLTF file from PolyCam');
       return;
     }
 
@@ -79,16 +77,14 @@ export default function LandscapeTool() {
     setModelUrl(url);
     setShow3DViewer(true);
 
-    // Optional: clear any existing photo reference when switching to 3D
     setReferenceFile(null);
     setReferencePreview(null);
   };
 
-  // ── NEW: Capture screenshot from the 3D canvas as top-down reference ──
   const handleCaptureTopView = () => {
     const canvas = document.querySelector('canvas');
     if (!canvas) {
-      alert('3D viewer not found — try re-uploading the file');
+      alert('3D viewer canvas not found — try re-uploading');
       return;
     }
 
@@ -97,9 +93,9 @@ export default function LandscapeTool() {
 
     setReferenceFile(file);
     setReferencePreview(dataURL);
-    setShow3DViewer(false); // Hide viewer after capture
+    setShow3DViewer(false);
 
-    alert('Top-down view captured and set as reference! Now generate your design.');
+    alert('Top-down view captured! You can now generate your design.');
   };
 
   const dataURLtoFile = (dataurl: string, filename: string): File => {
@@ -174,18 +170,14 @@ Natural daylight, high detail, professional photography style.`;
     setPlanLoading(true);
 
     const planPrompt = `Create a clean, professional top-down landscape plan (orthographic / bird's-eye view) based on this yard and the proposed design.
-
 Use diagram/technical drawing style: light background, clear black outlines, labeled zones with text annotations, approximate square footages shown, material labels.
-
 Preserve exact proportions of house, driveway, garage, sidewalks, fences from the reference.
-
 Show only yard modifications with:
 - Beds, paths, patios, rain garden basin, tree/shrub groupings clearly outlined
 - Text labels including square footage, e.g. "Native Perennial Bed – 320 sq ft", "Permeable Paver Patio – 180 sq ft", "Rain Garden", "Fruit Tree Guild"
 - Material notations: permeable pavers, natural stone, mulch, decomposed granite paths, etc.
 - Simple symbols: circles/dots for trees/shrubs, patterns for mulch/perennials
 - High readability, professional CAD-like aesthetic, not photorealistic.
-
 Aspect ratio 1:1 or 4:3 for plan layout.`;
 
     try {
@@ -257,7 +249,6 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
     });
   };
 
-  // ── NEW: Tiny component to render the loaded GLB/GLTF model ───────
   function Model({ url }: { url: string }) {
     const { scene } = useGLTF(url);
     return <primitive object={scene} dispose={null} />;
@@ -276,7 +267,7 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
           Intelligent Regional Designs Instantly
         </p>
 
-        {/* Upload Section - original photo upload */}
+        {/* Photo Upload */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-12">
           <h2 className="text-2xl font-semibold mb-4">Upload your yard photo (optional)</h2>
           <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-12 text-center">
@@ -300,13 +291,13 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
           </div>
         </div>
 
-        {/* ── NEW: 3D Scan Upload Section ────────────────────────────────── */}
+        {/* 3D Scan Upload */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-12">
-          <h2 className="text-2xl font-semibold mb-4">Or upload 3D scan (PolyCam GLB/GLTF)</h2>
+          <h2 className="text-2xl font-semibold mb-4">Or upload 3D scan (PolyCam .GLB file)</h2>
           <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-12 text-center">
             <label className="cursor-pointer block">
               <Upload className="w-16 h-16 mx-auto text-zinc-500 mb-4" />
-              <span className="text-xl text-zinc-300">Click to upload .GLB (recommended) or .GLTF</span>
+              <span className="text-xl text-zinc-300">Click to upload .GLB or .GLTF</span>
               <input
                 type="file"
                 accept=".glb,.gltf"
@@ -319,11 +310,11 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
           {show3DViewer && modelUrl && (
             <div className="mt-6">
               <div className="text-sm text-zinc-400 mb-3">
-                Use mouse: drag to orbit, scroll to zoom. Position for clean top-down view, then capture.
+                Orbit / zoom to a clean top-down view → then capture
               </div>
               <div className="border border-zinc-700 rounded-2xl overflow-hidden" style={{ height: '400px' }}>
                 <Canvas
-                  gl={{ preserveDrawingBuffer: true }} // This allows screenshot capture
+                  gl={{ preserveDrawingBuffer: true }}
                   camera={{ position: [0, 15, 25], fov: 45 }}
                   style={{ background: '#111' }}
                 >
@@ -331,7 +322,7 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
                   <directionalLight position={[10, 20, 5]} intensity={1.2} castShadow />
                   <Model url={modelUrl} />
                   <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
-                  <Grid args={[200, 200]} position={[0, -0.01, 0]} /> {/* Helps with scale/orientation */}
+                  <Grid args={[200, 200]} position={[0, -0.01, 0]} />
                   <Environment preset="sunset" />
                 </Canvas>
               </div>
@@ -340,13 +331,13 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
                 onClick={handleCaptureTopView}
                 className="mt-4 w-full bg-emerald-700 hover:bg-emerald-600 text-white font-semibold py-4 rounded-2xl transition"
               >
-                Capture Top-Down View → Use as Reference
+                Capture Top-Down View & Use as Reference Photo
               </button>
             </div>
           )}
         </div>
 
-        {/* Customize Section - your original unchanged */}
+        {/* Customize Section */}
         <div className="mb-12">
           <h2 className="text-3xl font-semibold text-center mb-8">Customize Your Landscape</h2>
           <div className="space-y-8">
@@ -482,7 +473,7 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
           </div>
         </div>
 
-        {/* Generate Concept - unchanged */}
+        {/* Generate Button */}
         <div className="text-center mb-16">
           <button
             onClick={generateDesign}
@@ -493,7 +484,7 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
           </button>
         </div>
 
-        {/* Results - your original unchanged */}
+        {/* Results */}
         {design && (
           <div className="mt-12">
             <h2 className="text-3xl font-semibold text-center mb-8">Your Custom Design</h2>
@@ -537,7 +528,7 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
               </div>
             </div>
 
-            {/* Show Detailed Plan if generated */}
+            {/* Detailed Plan */}
             {detailedPlan && (
               <div className="mb-12">
                 <h3 className="text-2xl font-medium text-center mb-4">Detailed Top-Down Plan</h3>
@@ -547,7 +538,7 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
               </div>
             )}
 
-            {/* Breakdown Display */}
+            {/* Breakdown */}
             {(breakdown || breakdownLoading || breakdownError) && (
               <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto p-8 space-y-6">
                 {breakdownError && (
@@ -555,13 +546,11 @@ Aspect ratio 1:1 or 4:3 for plan layout.`;
                     {breakdownError}
                   </div>
                 )}
-
                 {breakdown && !breakdownError && (
                   <div className="prose prose-invert max-w-none text-lg leading-relaxed prose-headings:text-emerald-400 prose-table:border-zinc-700 prose-td:p-3">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{breakdown}</ReactMarkdown>
                   </div>
                 )}
-
                 {breakdownLoading && !breakdown && !breakdownError && (
                   <div className="text-center py-8 text-zinc-400 italic">Analyzing your design...</div>
                 )}
