@@ -4,7 +4,7 @@ const nextConfig = {
     'three',
     '@react-three/fiber',
     '@react-three/drei',
-    '@runwayml/sdk'  // also helps if runway is causing issues
+    '@runwayml/sdk'
   ],
 };
 
