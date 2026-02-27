@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import RunwayML from '@runwayml/sdk';
 
@@ -11,27 +10,30 @@ export async function POST(req: NextRequest) {
     }
 
     const client = new RunwayML({
-      apiKey: process.env.RUNWAY_API_KEY,   // ← Add this to your .env.local
+      apiKey: process.env.RUNWAY_API_KEY, // Set this in .env.local or Vercel env vars
     });
 
+    // Create the task
     const task = await client.imageToVideo.create({
-      model: 'gen4.5',                    // best quality in 2026
+      model: 'gen4.5',
       promptImage: imageUrl,
-      promptText: 'smooth cinematic flythrough over the Fort Collins landscape design, gentle wind rustling through the plants and grasses, subtle water movement in the rain garden, natural daylight, realistic motion, peaceful and relaxing',
+      promptText:
+        'smooth cinematic flythrough over the Fort Collins landscape design, gentle wind rustling through the plants and grasses, subtle water movement in the rain garden, natural daylight, realistic motion, peaceful and relaxing',
       duration: 8,
-      ratio: '16:9',
+      ratio: '1280:720', // Valid ratio
     });
 
-    const result = await task.waitForTaskOutput();   // automatically polls
+    console.log('Runway task created:', task.id);
 
+    // Return only the task ID - no status access to avoid type error
     return NextResponse.json({
-      videoUrl: result.output?.[0] || result.videoUrl,
-      status: 'success',
+      taskId: task.id,
+      message: `Task created successfully. Poll status at /api/poll-task?id=${task.id} or check Runway dashboard.`,
     });
   } catch (err: any) {
-    console.error(err);
+    console.error('Runway API error:', err);
     return NextResponse.json(
-      { error: err.message || 'Runway animation failed' },
+      { error: err.message || 'Runway task creation failed' },
       { status: 500 }
     );
   }
