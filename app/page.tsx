@@ -167,7 +167,6 @@ export default function LandscapeTool() {
     mulch sq ft, and technical landscape symbols. High readability.`;
 
     try {
-      // Prioritize the new spatial data (Aerial or 3D Capture) as the base for the plan
       const baseImage = aerialFile ? await fileToBase64(aerialFile) : 
                         (referenceFile ? await fileToBase64(referenceFile) : null);
 
@@ -178,7 +177,7 @@ export default function LandscapeTool() {
           prompt: planPrompt,
           isEdit: true,
           imageBase64: baseImage,
-          contextUrl: design?.url, // Reference the concept image
+          contextUrl: design?.url,
           aspect: '1:1',
         }),
       });
@@ -231,11 +230,9 @@ export default function LandscapeTool() {
               </div>
             </div>
 
-            {/* Customize Section - Original Toggles */}
             <div className="space-y-6">
               <h2 className="text-3xl font-semibold text-center mb-8">Customize Your Landscape</h2>
               
-              {/* Native Planting */}
               <div className={`bg-zinc-900 border-2 rounded-3xl p-8 relative transition-all ${nativePlanting ? 'border-emerald-600 bg-emerald-950/10' : 'border-zinc-800'}`}>
                 <div className="absolute -top-3 -right-3 bg-emerald-600 text-white text-xs font-bold px-4 py-1 rounded-full flex items-center gap-1 shadow-lg">
                   <Award size={14} /> UP TO $1,000 REBATE
@@ -249,7 +246,6 @@ export default function LandscapeTool() {
                 </label>
               </div>
 
-              {/* Rain Garden */}
               <div className={`bg-zinc-900 border-2 rounded-3xl p-8 transition-all ${rainGarden ? 'border-emerald-600 bg-emerald-950/10' : 'border-zinc-800'}`}>
                 <label className="flex items-start gap-4 cursor-pointer">
                   <input type="checkbox" checked={rainGarden} onChange={(e) => setRainGarden(e.target.checked)} className="mt-1 w-6 h-6 accent-emerald-600" />
@@ -260,7 +256,6 @@ export default function LandscapeTool() {
                 </label>
               </div>
 
-              {/* Hardscape Toggle & Selects */}
               <div className={`bg-zinc-900 border-2 rounded-3xl p-8 transition-all ${hardscape ? 'border-emerald-600 bg-emerald-950/10' : 'border-zinc-800'}`}>
                 <label className="flex items-start gap-4 cursor-pointer">
                   <input type="checkbox" checked={hardscape} onChange={(e) => setHardscape(e.target.checked)} className="mt-1 w-6 h-6 accent-emerald-600" />
@@ -283,7 +278,6 @@ export default function LandscapeTool() {
                 )}
               </div>
 
-              {/* Edible Guilds */}
               <div className={`bg-zinc-900 border-2 rounded-3xl p-8 transition-all ${edibleGuild ? 'border-emerald-600 bg-emerald-950/10' : 'border-zinc-800'}`}>
                 <label className="flex items-start gap-4 cursor-pointer">
                   <input type="checkbox" checked={edibleGuild} onChange={(e) => setEdibleGuild(e.target.checked)} className="mt-1 w-6 h-6 accent-emerald-600" />
@@ -318,9 +312,7 @@ export default function LandscapeTool() {
               </div>
             </div>
 
-            {/* Options Below Image */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-              {/* FREE STRATEGY */}
               <div className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 flex flex-col justify-between">
                 <div>
                   <h3 className="text-xl font-bold text-emerald-500 flex items-center gap-2 mb-2"><Info size={20}/> Basic Strategy (Free)</h3>
@@ -331,7 +323,6 @@ export default function LandscapeTool() {
                 </button>
               </div>
 
-              {/* MASTER PLAN UPGRADE */}
               <div className="bg-emerald-950/20 p-8 rounded-3xl border border-emerald-600 flex flex-col justify-between relative">
                 <div className="absolute top-4 right-4 text-emerald-500 opacity-20"><Box size={40}/></div>
                 <div>
@@ -344,7 +335,6 @@ export default function LandscapeTool() {
               </div>
             </div>
 
-            {/* SPATIAL DATA COLLECTION (Was originally on page 1, now only here) */}
             {showSpatialCollector && !detailedPlan && (
               <div className="bg-zinc-900 border-2 border-emerald-500 rounded-3xl p-8 max-w-4xl mx-auto animate-in slide-in-from-bottom-8 duration-500 shadow-2xl">
                 <h3 className="text-2xl font-bold mb-2 text-center text-emerald-500">Spatial Intelligence Activation</h3>
@@ -399,17 +389,47 @@ export default function LandscapeTool() {
               </div>
             )}
 
-            {/* FINAL BREAKDOWN RESULTS */}
+            {/* UPGRADED BREAKDOWN RESULTS */}
             {breakdown && (
               <div className="bg-zinc-900 rounded-3xl p-8 border border-zinc-800 max-w-4xl mx-auto shadow-2xl animate-in fade-in">
-                 <h3 className="text-2xl font-bold mb-6 text-emerald-400 border-b border-zinc-800 pb-4">Pro Installation Strategy</h3>
-                 <div className="prose prose-invert max-w-none text-lg leading-relaxed prose-headings:text-emerald-400">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{breakdown}</ReactMarkdown>
-                 </div>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-zinc-800 pb-6 gap-4">
+                  <div>
+                    <h3 className="text-3xl font-bold text-emerald-400">Pro Installation Strategy</h3>
+                    <p className="text-zinc-500 text-sm mt-1">Customized for Fort Collins, CO Arid Climate</p>
+                  </div>
+                  <div className="bg-emerald-600/10 border border-emerald-500/50 px-4 py-2 rounded-xl">
+                    <span className="text-emerald-500 font-bold text-sm flex items-center gap-2">
+                      <Award size={16} /> XIP REBATE ELIGIBLE
+                    </span>
+                  </div>
+                </div>
+
+                <div className="prose prose-invert max-w-none text-lg leading-relaxed 
+                  prose-headings:text-emerald-400 
+                  prose-table:border-collapse 
+                  prose-thead:bg-zinc-950 
+                  prose-th:text-emerald-500 prose-th:p-4 prose-th:border prose-th:border-zinc-800
+                  prose-td:p-4 prose-td:border prose-td:border-zinc-800 prose-td:text-zinc-300">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{breakdown}</ReactMarkdown>
+                </div>
+
+                <div className="mt-12 p-6 bg-zinc-950 rounded-2xl border border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-6">
+                  <div className="flex items-center gap-4 text-left">
+                    <div className="bg-emerald-600 p-3 rounded-full">
+                      <CheckCircle2 className="text-white" size={24} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-white">Next Step: Soil Prep</p>
+                      <p className="text-zinc-500 text-sm">Recommended for Northern Colorado clay soils.</p>
+                    </div>
+                  </div>
+                  <button onClick={() => window.print()} className="text-zinc-400 hover:text-white text-sm underline underline-offset-4">
+                    Save Strategy as PDF
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* FINAL MASTER PLAN RESULTS */}
             {detailedPlan && (
               <div className="mt-16 space-y-10 animate-in zoom-in-95 duration-700">
                 <div className="text-center">
@@ -428,8 +448,7 @@ export default function LandscapeTool() {
           </div>
         )}
 
-        {/* Footer Area */}
-        <div className="mt-24 pt-12 border-t border-zinc-900 flex flex-col items-center gap-4 opacity-50">
+        <div className="mt-24 pt-12 border-t border-zinc-900 flex flex-col items-center gap-4 opacity-50 text-center">
            <p className="text-zinc-500 text-sm">Paddy O' Patio © 2026 • Colorado Native Design Specialist</p>
            <a href="https://paddenpermaculture.com" className="text-emerald-500 underline text-sm">paddenpermaculture.com</a>
         </div>
