@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, Suspense } from 'react';
-import { Upload, X, Award, MapPin, Layers, Box, CheckCircle2 } from 'lucide-react';
+import { Upload, X, Award, MapPin, Layers, Box, CheckCircle2, ChevronRight, Info } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -14,13 +14,13 @@ export default function LandscapeTool() {
   const [loading, setLoading] = useState(false);
   const [design, setDesign] = useState<{ url: string; promptUsed: string } | null>(null);
 
-  // --- PHASE 2 STATE (DETAILED PLAN) ---
+  // --- PHASE 2 STATE (DETAILED PLAN & SPATIAL INTEL) ---
   const [planLoading, setPlanLoading] = useState(false);
   const [detailedPlan, setDetailedPlan] = useState<{ url: string; promptUsed: string } | null>(null);
   const [showSpatialCollector, setShowSpatialCollector] = useState(false);
   const [spatialSource, setSpatialSource] = useState<'none' | 'address' | 'aerial' | '3d'>('none');
   
-  // New Spatial Data Inputs
+  // Spatial Data Inputs
   const [address, setAddress] = useState('');
   const [aerialPreview, setAerialPreview] = useState<string | null>(null);
   const [aerialFile, setAerialFile] = useState<File | null>(null);
@@ -30,7 +30,7 @@ export default function LandscapeTool() {
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
 
-  // --- LANDSCAPE SELECTIONS (Original Features) ---
+  // --- LANDSCAPE SELECTIONS (Original Customization Features) ---
   const [nativePlanting, setNativePlanting] = useState(true);
   const [rainGarden, setRainGarden] = useState(false);
   const [hardscape, setHardscape] = useState(false);
@@ -49,7 +49,7 @@ export default function LandscapeTool() {
     return () => { if (modelUrl) URL.revokeObjectURL(modelUrl); };
   }, [modelUrl]);
 
-  // --- HELPERS & HANDLERS ---
+  // --- HELPERS ---
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -80,7 +80,7 @@ export default function LandscapeTool() {
   const handle3DFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !file.name.toLowerCase().match(/\.(glb|gltf)$/)) {
-      alert('Please upload a .GLB or .GLTF file');
+      alert('Please upload a .GLB or .GLTF file from PolyCam');
       return;
     }
     if (modelUrl) URL.revokeObjectURL(modelUrl);
@@ -119,31 +119,29 @@ export default function LandscapeTool() {
       let n = bstr.length;
       const u8arr = new Uint8Array(n);
       while(n--) u8arr[n] = bstr.charCodeAt(n);
-      const file = new File([u8arr], 'top-view.jpg', { type: 'image/jpeg' });
+      const file = new File([u8arr], 'top-view-scan.jpg', { type: 'image/jpeg' });
 
-      // In Step 2, this "captured" image becomes the aerial reference
       setAerialFile(file);
       setAerialPreview(resizedDataURL);
       setShow3DViewer(false);
-      alert('3D Scan oriented! Ready to generate plan.');
+      alert('Spatial layout captured! Ready to generate your master plan.');
     } catch (err) { alert('Capture failed'); }
   };
 
-  // --- API LOGIC ---
-
+  // --- API CALLS ---
   const generateDesign = async () => {
     setLoading(true);
     let features: string[] = [];
-    if (nativePlanting) features.push('grass replaced with Colorado native perennials and shrubs');
+    if (nativePlanting) features.push('low-water Colorado native perennials, grasses, and shrubs');
     if (rainGarden) features.push('downspout rain garden infiltration basin');
     if (hardscape) features.push(`${hardscapeType} made of ${hardscapeMaterial}`);
     if (edibleGuild) {
-        if (culinaryGuild) features.push('culinary herb guild');
+        if (culinaryGuild) features.push('culinary herb/veggie guild');
         if (medicinalGuild) features.push('medicinal herb guild');
-        if (fruitGuild) features.push('fruit tree guild');
+        if (fruitGuild) features.push('fruit tree and berry guild');
     }
 
-    const finalPrompt = `Photorealistic landscape design for a Fort Collins, CO yard. ${features.join(', ')}. Natural daylight, professional photography. DO NOT change house architecture.`;
+    const finalPrompt = `Photorealistic landscape design for a Fort Collins yard. ${features.join(', ')}. Natural daylight, professional photography. DO NOT change house architecture.`;
 
     try {
       const res = await fetch('/api/generate', {
@@ -158,22 +156,18 @@ export default function LandscapeTool() {
       });
       const data = await res.json();
       setDesign({ url: data.data?.[0]?.url, promptUsed: finalPrompt });
-    } catch (err) { alert('Generation failed'); }
+    } catch (err) { alert('Design generation failed'); }
     setLoading(false);
   };
 
   const generateDetailedPlan = async () => {
     setPlanLoading(true);
-    // This prompt now prioritizes "Spatial Intelligence" by referencing the conceptual design 
-    // and the new aerial/3D information.
-    const planPrompt = `Create a professional CAD-style top-down landscape master plan. 
-    Reference the colors and plant style from the previously generated concept.
-    Include: technical symbols, plant quantity legend, mulch and stone square footages, 
-    and clear labels for all zones. Scale-accurate orthographic view.`;
+    const planPrompt = `Create a professional CAD-style top-down landscape master plan (orthographic). 
+    Use the plant choices and aesthetic from the previous design. Include a detailed key, material quantities, 
+    mulch sq ft, and technical landscape symbols. High readability.`;
 
     try {
-      // Logic: If they uploaded an aerial or 3D view, use that as the base for the plan
-      // Otherwise, use the original reference image.
+      // Prioritize the new spatial data (Aerial or 3D Capture) as the base for the plan
       const baseImage = aerialFile ? await fileToBase64(aerialFile) : 
                         (referenceFile ? await fileToBase64(referenceFile) : null);
 
@@ -184,8 +178,7 @@ export default function LandscapeTool() {
           prompt: planPrompt,
           isEdit: true,
           imageBase64: baseImage,
-          // We pass the concept URL so the model "sees" the intended aesthetic
-          contextImage: design?.url, 
+          contextUrl: design?.url, // Reference the concept image
           aspect: '1:1',
         }),
       });
@@ -207,7 +200,7 @@ export default function LandscapeTool() {
       });
       const data = await res.json();
       setBreakdown(data.breakdown || '');
-    } catch (err) { setBreakdownError('Failed to analyze design.'); }
+    } catch (err) { setBreakdownError('Analysis failed.'); }
     setBreakdownLoading(false);
   };
 
@@ -215,175 +208,230 @@ export default function LandscapeTool() {
     <div className="min-h-screen bg-zinc-950 text-white py-12 px-6">
       <div className="max-w-5xl mx-auto">
         <h1 className="text-5xl md:text-6xl font-serif font-bold text-center text-emerald-600 mb-2">Paddy O' Patio</h1>
-        <p className="text-center text-xl text-emerald-500/80 mb-12 font-medium italic">Intelligent Regional Designs Instantly</p>
+        <p className="text-center text-xl text-zinc-400 mb-12 italic">Intelligent Regional Designs Instantly</p>
 
-        {/* --- PHASE 1: THE HOOK --- */}
+        {/* --- PHASE 1: THE INPUT --- */}
         {!design && (
           <div className="space-y-12">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-              <h2 className="text-2xl font-semibold mb-4">1. Start with a photo of your yard</h2>
+              <h2 className="text-2xl font-semibold mb-4">1. Upload a photo of your yard</h2>
               <div className="border-2 border-dashed border-zinc-700 rounded-2xl p-12 text-center">
                 {referencePreview ? (
                   <div className="relative max-w-md mx-auto">
-                    <img src={referencePreview} className="rounded-2xl" alt="Preview" />
-                    <button onClick={() => {setReferenceFile(null); setReferencePreview(null);}} className="absolute -top-2 -right-2 bg-red-600 p-2 rounded-full"><X size={18} /></button>
+                    <img src={referencePreview} className="rounded-2xl shadow-2xl" alt="Preview" />
+                    <button onClick={() => {setReferenceFile(null); setReferencePreview(null);}} className="absolute -top-3 -right-3 bg-red-600 p-2 rounded-full hover:bg-red-700 transition shadow-lg"><X size={20} /></button>
                   </div>
                 ) : (
-                  <label className="cursor-pointer block">
-                    <Upload className="w-12 h-12 mx-auto text-zinc-500 mb-4" />
-                    <span className="text-zinc-300">Click to upload yard photo</span>
+                  <label className="cursor-pointer block group">
+                    <Upload className="w-16 h-16 mx-auto text-zinc-500 mb-4 group-hover:text-emerald-500 transition-colors" />
+                    <span className="text-xl text-zinc-300 group-hover:text-white transition-colors">Click to upload yard photo</span>
                     <input type="file" accept="image/*" onChange={(e) => handleFile(e, 'reference')} className="hidden" />
                   </label>
                 )}
               </div>
             </div>
 
-            {/* Selection Toggles (Native, Rain Garden, etc.) - Preserved from original */}
-            <div className="grid grid-cols-1 gap-6">
-              <div className={`bg-zinc-900 border-2 rounded-3xl p-6 transition ${nativePlanting ? 'border-emerald-600' : 'border-zinc-800'}`}>
-                 <label className="flex items-start gap-4 cursor-pointer">
-                    <input type="checkbox" checked={nativePlanting} onChange={(e) => setNativePlanting(e.target.checked)} className="mt-1 w-6 h-6 accent-emerald-600" />
-                    <div>
-                      <div className="text-xl font-semibold">Colorado Native Restoration</div>
-                      <p className="text-zinc-400 text-sm">Qualifies for up to $1,000 in Fort Collins rebates.</p>
-                    </div>
-                 </label>
+            {/* Customize Section - Original Toggles */}
+            <div className="space-y-6">
+              <h2 className="text-3xl font-semibold text-center mb-8">Customize Your Landscape</h2>
+              
+              {/* Native Planting */}
+              <div className={`bg-zinc-900 border-2 rounded-3xl p-8 relative transition-all ${nativePlanting ? 'border-emerald-600 bg-emerald-950/10' : 'border-zinc-800'}`}>
+                <div className="absolute -top-3 -right-3 bg-emerald-600 text-white text-xs font-bold px-4 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                  <Award size={14} /> UP TO $1,000 REBATE
+                </div>
+                <label className="flex items-start gap-4 cursor-pointer">
+                  <input type="checkbox" checked={nativePlanting} onChange={(e) => setNativePlanting(e.target.checked)} className="mt-1 w-6 h-6 accent-emerald-600" />
+                  <div>
+                    <div className="text-2xl font-semibold">Colorado Native Restoration</div>
+                    <p className="text-zinc-400 mt-1">Replace grass with low-water native perennials & shrubs.</p>
+                  </div>
+                </label>
               </div>
-              {/* ... [Rest of your original checkboxes: Rain Garden, Hardscape, Edibles] ... */}
-              {/* Note: I'm keeping the logic here, just condensing the JSX for readability */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-                 <label className="flex items-center gap-4 cursor-pointer">
-                    <input type="checkbox" checked={rainGarden} onChange={(e) => setRainGarden(e.target.checked)} className="w-6 h-6 accent-emerald-600" />
-                    <span className="text-xl font-semibold">Add Rain Garden Basin</span>
-                 </label>
+
+              {/* Rain Garden */}
+              <div className={`bg-zinc-900 border-2 rounded-3xl p-8 transition-all ${rainGarden ? 'border-emerald-600 bg-emerald-950/10' : 'border-zinc-800'}`}>
+                <label className="flex items-start gap-4 cursor-pointer">
+                  <input type="checkbox" checked={rainGarden} onChange={(e) => setRainGarden(e.target.checked)} className="mt-1 w-6 h-6 accent-emerald-600" />
+                  <div>
+                    <div className="text-2xl font-semibold">Add a Rain Garden</div>
+                    <p className="text-zinc-400 mt-1">Capture runoff in decorative infiltration basins.</p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Hardscape Toggle & Selects */}
+              <div className={`bg-zinc-900 border-2 rounded-3xl p-8 transition-all ${hardscape ? 'border-emerald-600 bg-emerald-950/10' : 'border-zinc-800'}`}>
+                <label className="flex items-start gap-4 cursor-pointer">
+                  <input type="checkbox" checked={hardscape} onChange={(e) => setHardscape(e.target.checked)} className="mt-1 w-6 h-6 accent-emerald-600" />
+                  <div>
+                    <div className="text-2xl font-semibold">Permeable Hardscape</div>
+                    <p className="text-zinc-400 mt-1">Add stone or paver walkways and patios.</p>
+                  </div>
+                </label>
+                {hardscape && (
+                  <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 pl-10">
+                    <select value={hardscapeType} onChange={(e) => setHardscapeType(e.target.value as any)} className="bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-white">
+                      <option value="walkway">Walkway Only</option>
+                      <option value="walkway-patio">Walkway + Patio</option>
+                    </select>
+                    <select value={hardscapeMaterial} onChange={(e) => setHardscapeMaterial(e.target.value as any)} className="bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-white">
+                      <option value="pavers">Permeable Pavers</option>
+                      <option value="stone">Natural Stone</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Edible Guilds */}
+              <div className={`bg-zinc-900 border-2 rounded-3xl p-8 transition-all ${edibleGuild ? 'border-emerald-600 bg-emerald-950/10' : 'border-zinc-800'}`}>
+                <label className="flex items-start gap-4 cursor-pointer">
+                  <input type="checkbox" checked={edibleGuild} onChange={(e) => setEdibleGuild(e.target.checked)} className="mt-1 w-6 h-6 accent-emerald-600" />
+                  <div>
+                    <div className="text-2xl font-semibold">Edible & Productive Guilds</div>
+                    <p className="text-zinc-400 mt-1">Integrate food-producing plant communities.</p>
+                  </div>
+                </label>
+                {edibleGuild && (
+                  <div className="mt-4 flex flex-wrap gap-4 pl-10">
+                    <label className="flex items-center gap-2"><input type="checkbox" checked={culinaryGuild} onChange={(e) => setCulinaryGuild(e.target.checked)} className="w-5 h-5 accent-emerald-600" /> Culinary</label>
+                    <label className="flex items-center gap-2"><input type="checkbox" checked={medicinalGuild} onChange={(e) => setMedicinalGuild(e.target.checked)} className="w-5 h-5 accent-emerald-600" /> Medicinal</label>
+                    <label className="flex items-center gap-2"><input type="checkbox" checked={fruitGuild} onChange={(e) => setFruitGuild(e.target.checked)} className="w-5 h-5 accent-emerald-600" /> Fruit Trees</label>
+                  </div>
+                )}
               </div>
             </div>
 
-            <button onClick={generateDesign} disabled={loading} className="w-full bg-emerald-700 py-6 rounded-3xl text-2xl font-bold hover:bg-emerald-600 transition shadow-2xl">
-              {loading ? 'Visualizing your future yard...' : 'Generate My Concept Design'}
+            <button onClick={generateDesign} disabled={loading} className="w-full bg-emerald-700 py-6 rounded-3xl text-2xl font-bold hover:bg-emerald-600 transition shadow-2xl disabled:bg-zinc-800">
+              {loading ? 'Generating Concept...' : 'Visualize My Landscape Design'}
             </button>
           </div>
         )}
 
-        {/* --- PHASE 2: THE RESULTS & THE UPSELL --- */}
+        {/* --- PHASE 2: THE RESULTS --- */}
         {design && (
-          <div className="space-y-12 animate-in fade-in duration-700">
+          <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="text-center">
               <h2 className="text-3xl font-bold mb-6">Your Landscape Concept</h2>
               <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 max-w-4xl mx-auto shadow-2xl">
-                <img src={design.url} className="w-full h-auto" alt="Concept Result" />
+                <img src={design.url} className="w-full h-auto max-h-[600px] object-cover" alt="Concept" />
               </div>
             </div>
 
-            {/* TWO TRACKS */}
+            {/* Options Below Image */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-              {/* TRACK A: FREE DATA */}
+              {/* FREE STRATEGY */}
               <div className="bg-zinc-900 p-8 rounded-3xl border border-zinc-800 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-xl font-bold text-emerald-500 mb-2">Basic Strategy</h3>
-                  <p className="text-zinc-400 text-sm mb-6">Get a free plant list, installation strategy, and rough cost estimate based on this image.</p>
+                  <h3 className="text-xl font-bold text-emerald-500 flex items-center gap-2 mb-2"><Info size={20}/> Basic Strategy (Free)</h3>
+                  <p className="text-zinc-400 text-sm mb-6">Receive a custom plant list, installation strategy, and estimated costs based on this design.</p>
                 </div>
-                <button onClick={generateBreakdown} disabled={breakdownLoading} className="w-full bg-zinc-800 py-4 rounded-2xl font-semibold hover:bg-zinc-700 transition">
+                <button onClick={generateBreakdown} disabled={breakdownLoading} className="w-full bg-zinc-800 py-4 rounded-2xl font-bold hover:bg-zinc-700 transition">
                   {breakdownLoading ? 'Analyzing...' : 'Generate Free Strategy'}
                 </button>
               </div>
 
-              {/* TRACK B: SPATIAL INTELLIGENCE (The detailed plan) */}
-              <div className="bg-emerald-950/20 p-8 rounded-3xl border border-emerald-600 flex flex-col justify-between relative overflow-hidden">
-                <div className="absolute top-4 right-4 text-emerald-500 opacity-20"><Award size={48}/></div>
+              {/* MASTER PLAN UPGRADE */}
+              <div className="bg-emerald-950/20 p-8 rounded-3xl border border-emerald-600 flex flex-col justify-between relative">
+                <div className="absolute top-4 right-4 text-emerald-500 opacity-20"><Box size={40}/></div>
                 <div>
-                  <h3 className="text-xl font-bold text-white mb-2">Detailed Master Plan</h3>
-                  <p className="text-zinc-100 text-sm mb-6">Unlock "Spatial Intelligence": Pro CAD-style plans, exact material quantities, and site-specific accuracy.</p>
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2 mb-2"><Award size={20}/> Pro Master Plan</h3>
+                  <p className="text-zinc-200 text-sm mb-6">Unlock scale-accurate top-down plans, technical symbol keys, and spatial intelligence.</p>
                 </div>
                 <button onClick={() => setShowSpatialCollector(true)} className="w-full bg-emerald-600 py-4 rounded-2xl font-bold hover:bg-emerald-500 transition shadow-lg">
-                  Upgrade to Master Plan
+                  Upgrade to Detailed Plan
                 </button>
               </div>
             </div>
 
-            {/* SPATIAL DATA COLLECTION BOX */}
+            {/* SPATIAL DATA COLLECTION (Was originally on page 1, now only here) */}
             {showSpatialCollector && !detailedPlan && (
-              <div className="bg-zinc-900 border-2 border-emerald-500 rounded-3xl p-8 max-w-4xl mx-auto animate-in slide-in-from-bottom-8 duration-500">
-                <h3 className="text-2xl font-bold mb-4 text-center">Activate Spatial Intelligence</h3>
-                <p className="text-zinc-400 text-center mb-8">To create a scale-accurate master plan, Paddy O' needs more data about your site's footprint.</p>
+              <div className="bg-zinc-900 border-2 border-emerald-500 rounded-3xl p-8 max-w-4xl mx-auto animate-in slide-in-from-bottom-8 duration-500 shadow-2xl">
+                <h3 className="text-2xl font-bold mb-2 text-center text-emerald-500">Spatial Intelligence Activation</h3>
+                <p className="text-zinc-400 text-center mb-8 italic">Choose a data source to refine site proportions and master plan accuracy.</p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                  <button onClick={() => setSpatialSource('address')} className={`p-6 rounded-2xl border flex flex-col items-center gap-2 transition ${spatialSource === 'address' ? 'border-emerald-500 bg-emerald-500/10' : 'border-zinc-800'}`}>
-                    <MapPin /> <span className="text-sm font-medium">Address</span>
+                  <button onClick={() => setSpatialSource('address')} className={`p-6 rounded-2xl border flex flex-col items-center gap-2 transition ${spatialSource === 'address' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500' : 'border-zinc-800 text-zinc-400'}`}>
+                    <MapPin /> <span className="font-semibold">Address</span>
                   </button>
-                  <button onClick={() => setSpatialSource('aerial')} className={`p-6 rounded-2xl border flex flex-col items-center gap-2 transition ${spatialSource === 'aerial' ? 'border-emerald-500 bg-emerald-500/10' : 'border-zinc-800'}`}>
-                    <Layers /> <span className="text-sm font-medium">Satellite Photo</span>
+                  <button onClick={() => setSpatialSource('aerial')} className={`p-6 rounded-2xl border flex flex-col items-center gap-2 transition ${spatialSource === 'aerial' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500' : 'border-zinc-800 text-zinc-400'}`}>
+                    <Layers /> <span className="font-semibold">Aerial Photo</span>
                   </button>
-                  <button onClick={() => setSpatialSource('3d')} className={`p-6 rounded-2xl border flex flex-col items-center gap-2 transition ${spatialSource === '3d' ? 'border-emerald-500 bg-emerald-500/10' : 'border-zinc-800'}`}>
-                    <Box /> <span className="text-sm font-medium">3D PolyCam Scan</span>
+                  <button onClick={() => setSpatialSource('3d')} className={`p-6 rounded-2xl border flex flex-col items-center gap-2 transition ${spatialSource === '3d' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500' : 'border-zinc-800 text-zinc-400'}`}>
+                    <Box /> <span className="font-semibold">3D Scan (GLB)</span>
                   </button>
                 </div>
 
-                <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-800 mb-8 min-h-[120px] flex items-center justify-center">
+                <div className="bg-zinc-950 p-8 rounded-2xl border border-zinc-800 mb-8 flex flex-col items-center justify-center">
                   {spatialSource === 'address' && (
-                    <input type="text" placeholder="Enter full property address..." value={address} onChange={(e) => setAddress(e.target.value)} className="w-full bg-transparent border-b border-zinc-700 py-3 text-xl text-center outline-none focus:border-emerald-500 transition" />
+                    <input type="text" placeholder="Enter your full address..." value={address} onChange={(e) => setAddress(e.target.value)} className="w-full bg-transparent border-b-2 border-zinc-700 py-4 text-2xl text-center outline-none focus:border-emerald-500 transition" />
                   )}
                   {spatialSource === 'aerial' && (
                     <div className="w-full">
                        {aerialPreview ? (
-                         <div className="relative w-32 h-32 mx-auto"><img src={aerialPreview} className="rounded-xl w-full h-full object-cover" /><CheckCircle2 className="absolute -top-2 -right-2 text-emerald-500" /></div>
+                         <div className="relative w-48 h-48 mx-auto"><img src={aerialPreview} className="rounded-2xl w-full h-full object-cover shadow-2xl" /><button onClick={() => setAerialPreview(null)} className="absolute -top-2 -right-2 bg-red-600 p-1 rounded-full"><X size={16}/></button></div>
                        ) : (
-                        <label className="cursor-pointer flex flex-col items-center"><Upload className="mb-2 text-zinc-500"/><span className="text-sm">Upload Aerial/Base Map Image</span><input type="file" onChange={(e) => handleFile(e, 'aerial')} className="hidden" /></label>
+                        <label className="cursor-pointer flex flex-col items-center group"><Upload className="mb-4 text-zinc-500 group-hover:text-emerald-500"/><span className="text-lg">Upload satellite view or property map</span><input type="file" onChange={(e) => handleFile(e, 'aerial')} className="hidden" /></label>
                        )}
                     </div>
                   )}
                   {spatialSource === '3d' && (
-                    <div className="w-full">
+                    <div className="w-full text-center">
                       {!modelUrl ? (
-                        <label className="cursor-pointer flex flex-col items-center"><Upload className="mb-2 text-zinc-500"/><span className="text-sm">Upload .GLB PolyCam Scan</span><input type="file" accept=".glb,.gltf" onChange={handle3DFile} className="hidden" /></label>
+                        <label className="cursor-pointer flex flex-col items-center group"><Upload className="mb-4 text-zinc-500 group-hover:text-emerald-500"/><span className="text-lg">Upload .GLB from PolyCam</span><input type="file" accept=".glb,.gltf" onChange={handle3DFile} className="hidden" /></label>
                       ) : (
-                        <div className="space-y-4">
-                           <div className="h-64 rounded-xl overflow-hidden border border-zinc-800">
-                             <Suspense fallback={<div>Loading 3D...</div>}><Lazy3DViewer modelUrl={modelUrl} onCapture={handleCaptureTopView} /></Suspense>
+                        <div className="space-y-6">
+                           <p className="text-sm text-zinc-400 flex items-center justify-center gap-2"><ChevronRight size={16}/> Orient to top-view and capture</p>
+                           <div className="h-80 rounded-2xl overflow-hidden border border-zinc-800 shadow-inner">
+                             <Suspense fallback={<div className="flex items-center justify-center h-full">Loading Viewer...</div>}><Lazy3DViewer modelUrl={modelUrl} onCapture={handleCaptureTopView} /></Suspense>
                            </div>
-                           <button onClick={handleCaptureTopView} className="w-full bg-emerald-700 py-2 rounded-xl text-sm font-bold">Capture Top-Down Plan View</button>
+                           <button onClick={handleCaptureTopView} className="bg-emerald-700 px-8 py-3 rounded-xl font-bold shadow-lg">Capture Layout Snapshot</button>
                         </div>
                       )}
                     </div>
                   )}
-                  {spatialSource === 'none' && <p className="text-zinc-600 italic text-sm">Select a data source above to provide spatial context.</p>}
+                  {spatialSource === 'none' && <p className="text-zinc-600 italic">Select a source above to provide property dimensions.</p>}
                 </div>
 
-                <button onClick={generateDetailedPlan} disabled={planLoading} className="w-full bg-indigo-600 py-5 rounded-2xl text-xl font-bold hover:bg-indigo-500 transition shadow-xl">
+                <button onClick={generateDetailedPlan} disabled={planLoading} className="w-full bg-indigo-600 py-6 rounded-2xl text-2xl font-bold hover:bg-indigo-500 transition shadow-2xl disabled:bg-zinc-800">
                   {planLoading ? 'Integrating Spatial Intelligence...' : 'Generate Detailed Master Plan'}
                 </button>
               </div>
             )}
 
-            {/* BREAKDOWN RESULTS */}
+            {/* FINAL BREAKDOWN RESULTS */}
             {breakdown && (
-              <div className="bg-zinc-900 rounded-3xl p-8 border border-zinc-800 max-w-4xl mx-auto">
-                 <h3 className="text-2xl font-bold mb-6 text-emerald-400">Installation Strategy & Estimates</h3>
+              <div className="bg-zinc-900 rounded-3xl p-8 border border-zinc-800 max-w-4xl mx-auto shadow-2xl animate-in fade-in">
+                 <h3 className="text-2xl font-bold mb-6 text-emerald-400 border-b border-zinc-800 pb-4">Pro Installation Strategy</h3>
                  <div className="prose prose-invert max-w-none text-lg leading-relaxed prose-headings:text-emerald-400">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{breakdown}</ReactMarkdown>
                  </div>
               </div>
             )}
 
-            {/* DETAILED PLAN RESULTS */}
+            {/* FINAL MASTER PLAN RESULTS */}
             {detailedPlan && (
-              <div className="mt-16 space-y-8 animate-in zoom-in-95 duration-700">
-                <h2 className="text-3xl font-bold text-center">Your Master Landscape Plan</h2>
-                <div className="bg-white rounded-3xl p-4 shadow-2xl max-w-4xl mx-auto">
-                   <img src={detailedPlan.url} className="w-full h-auto rounded-2xl" alt="Technical Plan" />
+              <div className="mt-16 space-y-10 animate-in zoom-in-95 duration-700">
+                <div className="text-center">
+                  <h2 className="text-4xl font-bold text-emerald-500 mb-2">Your Detailed Master Plan</h2>
+                  <p className="text-zinc-400 italic">Ready for measurement and installation.</p>
                 </div>
-                <div className="flex flex-wrap justify-center gap-4">
-                    <a href={detailedPlan.url} download className="bg-emerald-700 px-8 py-4 rounded-2xl font-bold">Download Full Resolution Plan</a>
-                    <a href="mailto:patrick@paddenpermaculture.com" className="bg-indigo-600 px-8 py-4 rounded-2xl font-bold">Send to Padden Permaculture for Bid</a>
+                <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-4xl mx-auto">
+                   <img src={detailedPlan.url} className="w-full h-auto rounded-xl" alt="Technical Master Plan" />
+                </div>
+                <div className="flex flex-col sm:flex-row justify-center gap-6 max-w-4xl mx-auto">
+                    <a href={detailedPlan.url} download className="flex-1 bg-emerald-700 py-5 rounded-2xl font-bold text-center shadow-lg hover:bg-emerald-600 transition">Download Master Plan (PDF/JPG)</a>
+                    <a href="mailto:patrick@paddenpermaculture.com?subject=Landscape Plan Inquiry" className="flex-1 bg-indigo-600 py-5 rounded-2xl font-bold text-center shadow-lg hover:bg-indigo-500 transition">Get Installation Quote →</a>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* Footer CTAs */}
-        <div className="mt-20 pt-12 border-t border-zinc-900 text-center">
-           <p className="text-zinc-500 text-sm mb-4">Paddy O' Patio is a project by <a href="https://paddenpermaculture.com" className="text-emerald-500 underline">Padden Permaculture</a></p>
+        {/* Footer Area */}
+        <div className="mt-24 pt-12 border-t border-zinc-900 flex flex-col items-center gap-4 opacity-50">
+           <p className="text-zinc-500 text-sm">Paddy O' Patio © 2026 • Colorado Native Design Specialist</p>
+           <a href="https://paddenpermaculture.com" className="text-emerald-500 underline text-sm">paddenpermaculture.com</a>
         </div>
       </div>
     </div>
