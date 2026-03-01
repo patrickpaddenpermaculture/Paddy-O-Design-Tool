@@ -1,6 +1,10 @@
 'use client';
 import React, { useState, useEffect, Suspense } from 'react';
-import { Upload, X, Award, MapPin, Layers, Box, CheckCircle2, ChevronRight, Info, ShieldCheck, ExternalLink, HardHat } from 'lucide-react';
+import { 
+  Upload, X, Award, MapPin, Layers, Box, 
+  CheckCircle2, ChevronRight, Info, ShieldCheck, 
+  ExternalLink, HardHat 
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -206,7 +210,7 @@ export default function LandscapeTool() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white py-12 px-6">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-5xl md:text-6xl font-serif font-bold text-center text-emerald-600 mb-2">Paddy O' Patio</h1>
+        <h1 className="text-5xl md:text-6xl font-serif font-bold text-center text-emerald-600 mb-2">Paddy O&apos; Design Tool</h1>
         <p className="text-center text-xl text-zinc-400 mb-12 italic">Intelligent Regional Designs Instantly</p>
 
         {/* --- PHASE 1: THE INPUT --- */}
@@ -323,10 +327,8 @@ export default function LandscapeTool() {
                 </button>
               </div>
 
-              {/* UPGRADED SAAS/ENTERPRISE UPGRADE CARD */}
               <div className="bg-indigo-950/20 p-8 rounded-3xl border border-indigo-500/50 flex flex-col justify-between relative overflow-hidden group">
                 <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-all duration-500"></div>
-                
                 <div className="relative z-10">
                   <div className="flex justify-between items-start mb-4">
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -375,7 +377,7 @@ export default function LandscapeTool() {
                   {spatialSource === 'aerial' && (
                     <div className="w-full">
                        {aerialPreview ? (
-                         <div className="relative w-48 h-48 mx-auto"><img src={aerialPreview} className="rounded-2xl w-full h-full object-cover shadow-2xl" /><button onClick={() => setAerialPreview(null)} className="absolute -top-2 -right-2 bg-red-600 p-1 rounded-full"><X size={16}/></button></div>
+                         <div className="relative w-48 h-48 mx-auto"><img src={aerialPreview} className="rounded-2xl w-full h-full object-cover shadow-2xl" alt="Aerial" /><button onClick={() => setAerialPreview(null)} className="absolute -top-2 -right-2 bg-red-600 p-1 rounded-full"><X size={16}/></button></div>
                        ) : (
                         <label className="cursor-pointer flex flex-col items-center group"><Upload className="mb-4 text-zinc-500 group-hover:text-indigo-500"/><span className="text-lg">Upload satellite view or property map</span><input type="file" onChange={(e) => handleFile(e, 'aerial')} className="hidden" /></label>
                        )}
@@ -429,19 +431,18 @@ export default function LandscapeTool() {
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{breakdown}</ReactMarkdown>
                 </div>
 
+                {/* ACTION CARDS: SOIL PREP & CITY CONTRACTORS */}
                 <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
-                   {/* SOIL PREP CARD */}
                    <div className="p-6 bg-zinc-950 rounded-2xl border border-zinc-800 flex items-center gap-4">
                       <div className="bg-emerald-600 p-3 rounded-full shrink-0">
                         <CheckCircle2 className="text-white" size={24} />
                       </div>
                       <div>
                         <p className="font-bold text-white">Next Step: Soil Prep</p>
-                        <p className="text-zinc-500 text-sm">Recommended for Northern Colorado clay soils.</p>
+                        <p className="text-zinc-500 text-sm">Essential for Northern Colorado clay.</p>
                       </div>
                    </div>
 
-                   {/* CITY CONTRACTOR LINK CARD */}
                    <a 
                     href="https://www.fortcollins.gov/Services/Utilities/Programs-and-Rebates/Water-Programs/Water-Wise-Resources" 
                     target="_blank" 
@@ -453,7 +454,7 @@ export default function LandscapeTool() {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-1">
-                          <p className="font-bold text-emerald-400">Hire City-Approved Pros</p>
+                          <p className="font-bold text-emerald-400">City-Approved Pros</p>
                           <ExternalLink size={14} className="text-emerald-500 opacity-50" />
                         </div>
                         <p className="text-zinc-400 text-sm">Official Fort Collins Contractor List</p>
@@ -479,7 +480,7 @@ export default function LandscapeTool() {
                     <img src={detailedPlan.url} className="w-full h-auto rounded-xl" alt="Technical Master Plan" />
                 </div>
                 <div className="flex flex-col sm:flex-row justify-center gap-6 max-w-4xl mx-auto">
-                    <a href={detailedPlan.url} download className="flex-1 bg-emerald-700 py-5 rounded-2xl font-bold text-center shadow-lg hover:bg-emerald-600 transition">Download Master Plan (PDF/JPG)</a>
+                    <a href={detailedPlan.url} download className="flex-1 bg-emerald-700 py-5 rounded-2xl font-bold text-center shadow-lg hover:bg-emerald-600 transition">Download Master Plan</a>
                     <a href="mailto:patrick@paddenpermaculture.com?subject=Landscape Plan Inquiry" className="flex-1 bg-indigo-600 py-5 rounded-2xl font-bold text-center shadow-lg hover:bg-indigo-500 transition">Get Installation Quote →</a>
                 </div>
               </div>
@@ -488,7 +489,7 @@ export default function LandscapeTool() {
         )}
 
         <div className="mt-24 pt-12 border-t border-zinc-900 flex flex-col items-center gap-4 opacity-50 text-center">
-           <p className="text-zinc-500 text-sm">Paddy O' Patio © 2026 • Colorado Native Design Specialist</p>
+           <p className="text-zinc-500 text-sm">Paddy O&apos; Design Tool © 2026 • Colorado Native Design Specialist</p>
            <a href="https://paddenpermaculture.com" className="text-emerald-500 underline text-sm">paddenpermaculture.com</a>
         </div>
       </div>
