@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, Suspense } from 'react';
-import { Upload, X, Award, MapPin, Layers, Box, CheckCircle2, ChevronRight, Info } from 'lucide-react';
+import { Upload, X, Award, MapPin, Layers, Box, CheckCircle2, ChevronRight, Info, ShieldCheck } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -30,7 +30,7 @@ export default function LandscapeTool() {
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
 
-  // --- LANDSCAPE SELECTIONS (Original Customization Features) ---
+  // --- LANDSCAPE SELECTIONS ---
   const [nativePlanting, setNativePlanting] = useState(true);
   const [rainGarden, setRainGarden] = useState(false);
   const [hardscape, setHardscape] = useState(false);
@@ -323,59 +323,75 @@ export default function LandscapeTool() {
                 </button>
               </div>
 
-              <div className="bg-emerald-950/20 p-8 rounded-3xl border border-emerald-600 flex flex-col justify-between relative">
-                <div className="absolute top-4 right-4 text-emerald-500 opacity-20"><Box size={40}/></div>
-                <div>
-                  <h3 className="text-xl font-bold text-white flex items-center gap-2 mb-2"><Award size={20}/> Pro Master Plan</h3>
-                  <p className="text-zinc-200 text-sm mb-6">Unlock scale-accurate top-down plans, technical symbol keys, and spatial intelligence.</p>
+              {/* UPGRADED SAAS/ENTERPRISE UPGRADE CARD */}
+              <div className="bg-indigo-950/20 p-8 rounded-3xl border border-indigo-500/50 flex flex-col justify-between relative overflow-hidden group">
+                <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-all duration-500"></div>
+                
+                <div className="relative z-10">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      <ShieldCheck className="text-indigo-400" size={20}/> Precision Spatial Analysis
+                    </h3>
+                    <span className="bg-indigo-500/20 text-indigo-300 text-[10px] uppercase tracking-widest px-2 py-1 rounded-md border border-indigo-500/30">
+                      Utility Grade
+                    </span>
+                  </div>
+                  <p className="text-zinc-300 text-sm mb-6 leading-relaxed">
+                    Unlock scale-accurate orthographic drafting, technical symbol keys, and 
+                    <strong> automated square-footage calculations</strong> required for municipal rebate compliance.
+                  </p>
                 </div>
-                <button onClick={() => setShowSpatialCollector(true)} className="w-full bg-emerald-600 py-4 rounded-2xl font-bold hover:bg-emerald-500 transition shadow-lg">
-                  Upgrade to Detailed Plan
+
+                <button 
+                  onClick={() => setShowSpatialCollector(true)} 
+                  className="w-full bg-indigo-600 py-4 rounded-2xl font-bold hover:bg-indigo-500 transition-all shadow-lg hover:shadow-indigo-500/20 flex items-center justify-center gap-2"
+                >
+                  Activate Spatial Intelligence <ChevronRight size={18} />
                 </button>
               </div>
             </div>
 
             {showSpatialCollector && !detailedPlan && (
-              <div className="bg-zinc-900 border-2 border-emerald-500 rounded-3xl p-8 max-w-4xl mx-auto animate-in slide-in-from-bottom-8 duration-500 shadow-2xl">
-                <h3 className="text-2xl font-bold mb-2 text-center text-emerald-500">Spatial Intelligence Activation</h3>
-                <p className="text-zinc-400 text-center mb-8 italic">Choose a data source to refine site proportions and master plan accuracy.</p>
+              <div className="bg-zinc-900 border-2 border-indigo-500 rounded-3xl p-8 max-w-4xl mx-auto animate-in slide-in-from-bottom-8 duration-500 shadow-2xl">
+                <h3 className="text-2xl font-bold mb-2 text-center text-indigo-400">Spatial Intelligence Activation</h3>
+                <p className="text-zinc-400 text-center mb-8 italic">Validating property dimensions for utility-compliant drafting.</p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                  <button onClick={() => setSpatialSource('address')} className={`p-6 rounded-2xl border flex flex-col items-center gap-2 transition ${spatialSource === 'address' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500' : 'border-zinc-800 text-zinc-400'}`}>
+                  <button onClick={() => setSpatialSource('address')} className={`p-6 rounded-2xl border flex flex-col items-center gap-2 transition ${spatialSource === 'address' ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400' : 'border-zinc-800 text-zinc-400'}`}>
                     <MapPin /> <span className="font-semibold">Address</span>
                   </button>
-                  <button onClick={() => setSpatialSource('aerial')} className={`p-6 rounded-2xl border flex flex-col items-center gap-2 transition ${spatialSource === 'aerial' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500' : 'border-zinc-800 text-zinc-400'}`}>
+                  <button onClick={() => setSpatialSource('aerial')} className={`p-6 rounded-2xl border flex flex-col items-center gap-2 transition ${spatialSource === 'aerial' ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400' : 'border-zinc-800 text-zinc-400'}`}>
                     <Layers /> <span className="font-semibold">Aerial Photo</span>
                   </button>
-                  <button onClick={() => setSpatialSource('3d')} className={`p-6 rounded-2xl border flex flex-col items-center gap-2 transition ${spatialSource === '3d' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500' : 'border-zinc-800 text-zinc-400'}`}>
+                  <button onClick={() => setSpatialSource('3d')} className={`p-6 rounded-2xl border flex flex-col items-center gap-2 transition ${spatialSource === '3d' ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400' : 'border-zinc-800 text-zinc-400'}`}>
                     <Box /> <span className="font-semibold">3D Scan (GLB)</span>
                   </button>
                 </div>
 
                 <div className="bg-zinc-950 p-8 rounded-2xl border border-zinc-800 mb-8 flex flex-col items-center justify-center">
                   {spatialSource === 'address' && (
-                    <input type="text" placeholder="Enter your full address..." value={address} onChange={(e) => setAddress(e.target.value)} className="w-full bg-transparent border-b-2 border-zinc-700 py-4 text-2xl text-center outline-none focus:border-emerald-500 transition" />
+                    <input type="text" placeholder="Enter your full address..." value={address} onChange={(e) => setAddress(e.target.value)} className="w-full bg-transparent border-b-2 border-zinc-700 py-4 text-2xl text-center outline-none focus:border-indigo-500 transition" />
                   )}
                   {spatialSource === 'aerial' && (
                     <div className="w-full">
                        {aerialPreview ? (
                          <div className="relative w-48 h-48 mx-auto"><img src={aerialPreview} className="rounded-2xl w-full h-full object-cover shadow-2xl" /><button onClick={() => setAerialPreview(null)} className="absolute -top-2 -right-2 bg-red-600 p-1 rounded-full"><X size={16}/></button></div>
                        ) : (
-                        <label className="cursor-pointer flex flex-col items-center group"><Upload className="mb-4 text-zinc-500 group-hover:text-emerald-500"/><span className="text-lg">Upload satellite view or property map</span><input type="file" onChange={(e) => handleFile(e, 'aerial')} className="hidden" /></label>
+                        <label className="cursor-pointer flex flex-col items-center group"><Upload className="mb-4 text-zinc-500 group-hover:text-indigo-500"/><span className="text-lg">Upload satellite view or property map</span><input type="file" onChange={(e) => handleFile(e, 'aerial')} className="hidden" /></label>
                        )}
                     </div>
                   )}
                   {spatialSource === '3d' && (
                     <div className="w-full text-center">
                       {!modelUrl ? (
-                        <label className="cursor-pointer flex flex-col items-center group"><Upload className="mb-4 text-zinc-500 group-hover:text-emerald-500"/><span className="text-lg">Upload .GLB from PolyCam</span><input type="file" accept=".glb,.gltf" onChange={handle3DFile} className="hidden" /></label>
+                        <label className="cursor-pointer flex flex-col items-center group"><Upload className="mb-4 text-zinc-500 group-hover:text-indigo-500"/><span className="text-lg">Upload .GLB from PolyCam</span><input type="file" accept=".glb,.gltf" onChange={handle3DFile} className="hidden" /></label>
                       ) : (
                         <div className="space-y-6">
                            <p className="text-sm text-zinc-400 flex items-center justify-center gap-2"><ChevronRight size={16}/> Orient to top-view and capture</p>
                            <div className="h-80 rounded-2xl overflow-hidden border border-zinc-800 shadow-inner">
                              <Suspense fallback={<div className="flex items-center justify-center h-full">Loading Viewer...</div>}><Lazy3DViewer modelUrl={modelUrl} onCapture={handleCaptureTopView} /></Suspense>
                            </div>
-                           <button onClick={handleCaptureTopView} className="bg-emerald-700 px-8 py-3 rounded-xl font-bold shadow-lg">Capture Layout Snapshot</button>
+                           <button onClick={handleCaptureTopView} className="bg-indigo-700 px-8 py-3 rounded-xl font-bold shadow-lg">Capture Layout Snapshot</button>
                         </div>
                       )}
                     </div>
@@ -384,12 +400,12 @@ export default function LandscapeTool() {
                 </div>
 
                 <button onClick={generateDetailedPlan} disabled={planLoading} className="w-full bg-indigo-600 py-6 rounded-2xl text-2xl font-bold hover:bg-indigo-500 transition shadow-2xl disabled:bg-zinc-800">
-                  {planLoading ? 'Integrating Spatial Intelligence...' : 'Generate Detailed Master Plan'}
+                  {planLoading ? 'Generating Compliant Plan...' : 'Generate Detailed Master Plan'}
                 </button>
               </div>
             )}
 
-            {/* UPGRADED BREAKDOWN RESULTS */}
+            {/* BREAKDOWN RESULTS */}
             {breakdown && (
               <div className="bg-zinc-900 rounded-3xl p-8 border border-zinc-800 max-w-4xl mx-auto shadow-2xl animate-in fade-in">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-zinc-800 pb-6 gap-4">
@@ -433,8 +449,8 @@ export default function LandscapeTool() {
             {detailedPlan && (
               <div className="mt-16 space-y-10 animate-in zoom-in-95 duration-700">
                 <div className="text-center">
-                  <h2 className="text-4xl font-bold text-emerald-500 mb-2">Your Detailed Master Plan</h2>
-                  <p className="text-zinc-400 italic">Ready for measurement and installation.</p>
+                  <h2 className="text-4xl font-bold text-indigo-400 mb-2">Detailed Master Plan</h2>
+                  <p className="text-zinc-400 italic">Orthographic Drafting • Utility Approved Proportions</p>
                 </div>
                 <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-4xl mx-auto">
                    <img src={detailedPlan.url} className="w-full h-auto rounded-xl" alt="Technical Master Plan" />
