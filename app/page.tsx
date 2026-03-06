@@ -30,7 +30,7 @@ export default function LandscapeTool() {
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
 
-  // --- LANDSCAPE SELECTIONS (Original Customization Features) ---
+  // --- LANDSCAPE SELECTIONS ---
   const [nativePlanting, setNativePlanting] = useState(true);
   const [rainGarden, setRainGarden] = useState(false);
   const [hardscape, setHardscape] = useState(false);
@@ -155,8 +155,12 @@ export default function LandscapeTool() {
         }),
       });
       const data = await res.json();
-      setDesign({ url: data.data?.[0]?.url, promptUsed: finalPrompt });
-    } catch (err) { alert('Design generation failed'); }
+      if (data.data?.[0]?.url) {
+        setDesign({ url: data.data[0].url, promptUsed: finalPrompt });
+      } else {
+        throw new Error('No image returned');
+      }
+    } catch (err) { alert('Design generation failed. Check your API keys and billing.'); }
     setLoading(false);
   };
 
@@ -182,15 +186,23 @@ export default function LandscapeTool() {
         }),
       });
       const data = await res.json();
-      setDetailedPlan({ url: data.data?.[0]?.url, promptUsed: planPrompt });
+      if (data.data?.[0]?.url) {
+        setDetailedPlan({ url: data.data[0].url, promptUsed: planPrompt });
+      } else {
+        throw new Error('No plan returned');
+      }
     } catch (err) { alert('Plan generation failed'); }
     setPlanLoading(false);
   };
 
   const generateBreakdown = async () => {
     const imageToAnalyze = detailedPlan?.url || design?.url;
-    if (!imageToAnalyze) return;
+    if (!imageToAnalyze) {
+        alert("Please wait for the image to finish generating before creating a strategy.");
+        return;
+    }
     setBreakdownLoading(true);
+    setBreakdownError('');
     try {
       const res = await fetch('/api/breakdown', {
         method: 'POST',
@@ -198,8 +210,19 @@ export default function LandscapeTool() {
         body: JSON.stringify({ imageUrl: imageToAnalyze, tier: 'Custom Landscape' }),
       });
       const data = await res.json();
-      setBreakdown(data.breakdown || '');
-    } catch (err) { setBreakdownError('Analysis failed.'); }
+      if (data.breakdown) {
+        setBreakdown(data.breakdown);
+        // Scroll to the result
+        setTimeout(() => {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }, 100);
+      } else {
+          throw new Error('Analysis empty');
+      }
+    } catch (err) { 
+        setBreakdownError('Analysis failed.'); 
+        alert("Failed to analyze image. Ensure your Vision API is active.");
+    }
     setBreakdownLoading(false);
   };
 
@@ -389,9 +412,9 @@ export default function LandscapeTool() {
               </div>
             )}
 
-            {/* UPGRADED BREAKDOWN RESULTS */}
+            {/* BREAKDOWN RESULTS */}
             {breakdown && (
-              <div className="bg-zinc-900 rounded-3xl p-8 border border-zinc-800 max-w-4xl mx-auto shadow-2xl animate-in fade-in">
+              <div id="strategy-result" className="bg-zinc-900 rounded-3xl p-8 border border-zinc-800 max-w-4xl mx-auto shadow-2xl animate-in fade-in">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-zinc-800 pb-6 gap-4">
                   <div>
                     <h3 className="text-3xl font-bold text-emerald-400">Pro Installation Strategy</h3>
@@ -423,9 +446,14 @@ export default function LandscapeTool() {
                       <p className="text-zinc-500 text-sm">Recommended for Northern Colorado clay soils.</p>
                     </div>
                   </div>
-                  <button onClick={() => window.print()} className="text-zinc-400 hover:text-white text-sm underline underline-offset-4">
-                    Save Strategy as PDF
-                  </button>
+                  <div className="flex gap-4">
+                    <button onClick={() => window.print()} className="text-zinc-400 hover:text-white text-sm underline underline-offset-4">
+                        Save Strategy as PDF
+                    </button>
+                    <a href="mailto:patrick@paddenpermaculture.com?subject=Landscape Strategy Inquiry" className="text-emerald-500 hover:text-emerald-400 text-sm font-bold">
+                        Email Patrick →
+                    </a>
+                  </div>
                 </div>
               </div>
             )}
@@ -440,8 +468,16 @@ export default function LandscapeTool() {
                    <img src={detailedPlan.url} className="w-full h-auto rounded-xl" alt="Technical Master Plan" />
                 </div>
                 <div className="flex flex-col sm:flex-row justify-center gap-6 max-w-4xl mx-auto">
-                    <a href={detailedPlan.url} download className="flex-1 bg-emerald-700 py-5 rounded-2xl font-bold text-center shadow-lg hover:bg-emerald-600 transition">Download Master Plan (PDF/JPG)</a>
-                    <a href="mailto:patrick@paddenpermaculture.com?subject=Landscape Plan Inquiry" className="flex-1 bg-indigo-600 py-5 rounded-2xl font-bold text-center shadow-lg hover:bg-indigo-500 transition">Get Installation Quote →</a>
+                    <a href={detailedPlan.url} download className="flex-1 bg-emerald-700 py-5 rounded-2xl font-bold text-center shadow-lg hover:bg-emerald-600 transition">
+                        Download Master Plan (PDF/JPG)
+                    </a>
+                    <button 
+                        onClick={generateBreakdown} 
+                        disabled={breakdownLoading} 
+                        className="flex-1 bg-indigo-600 py-5 rounded-2xl font-bold text-center shadow-lg hover:bg-indigo-500 transition disabled:bg-zinc-800"
+                    >
+                        {breakdownLoading ? 'Analyzing Plan...' : 'Generate Pro Installation Strategy →'}
+                    </button>
                 </div>
               </div>
             )}
